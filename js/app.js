@@ -12,7 +12,7 @@ const CONFIG = {
   airtableTableName:    'Orders',
   deliveryPrice:        3.99,
   freeDeliveryThreshold: 30.00,
-  version:              'v6.13',
+  version:              'v6.14',
   versionDate:          'March 2026',
 };
 
@@ -70,9 +70,18 @@ function renderTypeGrid() {
   grid.innerHTML = '';
 
   types.forEach(type => {
-    // Pick one showcase image for this type
-    const showcase = state.allCharacters.find(c => c.type === type.key);
-    const imgUrl = showcase ? showcase.imageUrl : '';
+    // Pick a RANDOM character variant for showcase — different each page load
+    const variants = state.allCharacters.filter(c => c.type === type.key);
+    const randomVariant = variants[Math.floor(Math.random() * variants.length)];
+    // Then pick a random image from that variant's pool
+    let imgUrl = '';
+    if (randomVariant && randomVariant.allImages && randomVariant.allImages.length > 0) {
+      const CLOUD = 'dcyp4e7sp';
+      const randomId = randomVariant.allImages[Math.floor(Math.random() * randomVariant.allImages.length)];
+      imgUrl = `https://res.cloudinary.com/${CLOUD}/image/upload/w_400,c_fill,q_auto,f_auto/${randomId}.jpg`;
+    } else if (randomVariant) {
+      imgUrl = randomVariant.imageUrl;
+    }
 
     const div = document.createElement('div');
     div.className = 'type-card';
