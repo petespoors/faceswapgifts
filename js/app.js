@@ -10,10 +10,26 @@ const CONFIG = {
   airtableApiKey:       'YOUR_AIRTABLE_API_KEY',
   airtableBaseId:       'YOUR_AIRTABLE_BASE_ID',
   airtableTableName:    'Orders',
+  gelatoApiKey:         'ff70b053-951d-4190-b86e-249d87ffb724-a54fdd47-f3a1-4c07-b3c9-c6cbf03b8180:3abd3d71-87d7-434e-bbbc-3eade7db6671',
+  gelatoApiUrl:         'https://order.gelatoapis.com/v4/orders',
+  cloudinaryCloud:      'dcyp4e7sp',
+  cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:        3.99,
   freeDeliveryThreshold: 30.00,
-  version:              'v6.14',
+  version:              'v6.15',
   versionDate:          'March 2026',
+
+  // Gelato Product UIDs
+  gelatoProducts: {
+    mug:       'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
+    pillow:    'YOUR_PILLOW_UID',
+    blanket:   'YOUR_BLANKET_UID',
+    canvas:    'YOUR_CANVAS_UID',
+    tshirt:    'YOUR_TSHIRT_UID',
+    phonecase: 'YOUR_PHONECASE_UID',
+    tote:      'YOUR_TOTE_UID',
+    poster:    'YOUR_POSTER_UID',
+  },
 };
 
 // ── STATE ──
@@ -627,22 +643,64 @@ async function initiatePayment() {
   if (!email.includes('@')) { showToast('Please enter a valid email address.', 'error'); return; }
 
   const btn = document.getElementById('payBtn');
-  btn.textContent = 'Opening secure checkout...';
+  btn.textContent = 'Processing your order...';
   btn.disabled = true;
 
-  const orderRef = await saveOrderToAirtable(name, email, addr1, postcode);
-  setTimeout(() => {
+  try {
+    // Step 1 — Upload face-swapped image to Cloudinary for permanent public URL
+    let imageUrl = '';
+    if (state.swappedImageUrl) {
+      try {
+        imageUrl = await uploadSwappedImageToCloudinary(state.swappedImageUrl);
+        state.swappedImagePublicUrl = imageUrl;
+      } catch(uploadErr) {
+        debugLog('Image upload failed: ' + uploadErr.message + ' — continuing without print');
+      }
+    }
+
+    // Step 2 — Save order to Airtable
+    const customerDetails = {
+      name:     name,
+      email:    email,
+      addr1:    addr1,
+      addr2:    document.getElementById('custAddr2').value.trim(),
+      city:     document.getElementById('custAddr2').value.trim(),
+      postcode: postcode,
+      phone:    '',
+    };
+    const orderRef = await saveOrderToAirtable(name, email, addr1, postcode, imageUrl);
+
+    // Step 3 — Place Gelato print order (if we have image URL and product UID)
+    if (imageUrl && state.selectedProduct) {
+      try {
+        btn.textContent = 'Sending to print...';
+        await placeGelatoOrder(orderRef, imageUrl, customerDetails, state.selectedProduct);
+        debugLog('Gelato order placed successfully!');
+      } catch(gelatoErr) {
+        debugLog('Gelato order failed: ' + gelatoErr.message);
+        // Don't block the order — log and continue
+        // Admin can manually place in Gelato dashboard
+      }
+    }
+
+    // Step 4 — Show success
     document.getElementById('orderRef').textContent = orderRef;
     openModal('successModal');
     btn.textContent = '🔒 Pay Securely with Stripe';
     btn.disabled = false;
-  }, 1500);
+
+  } catch(err) {
+    debugLog('Order error: ' + err.message);
+    showToast('Something went wrong placing your order. Please try again.', 'error');
+    btn.textContent = '🔒 Pay Securely with Stripe';
+    btn.disabled = false;
+  }
 }
 
 // ══════════════════════════════════════════
 // AIRTABLE
 // ══════════════════════════════════════════
-async function saveOrderToAirtable(name, email, addr1, postcode) {
+async function saveOrderToAirtable(name, email, addr1, postcode, imageUrl = '') {
   const orderRef = 'FSG-' + Date.now().toString(36).toUpperCase();
   const delivery = state.selectedProductPrice >= CONFIG.freeDeliveryThreshold ? 0 : CONFIG.deliveryPrice;
   const total    = (state.selectedProductPrice + delivery).toFixed(2);
@@ -659,12 +717,103 @@ async function saveOrderToAirtable(name, email, addr1, postcode) {
         'Product': state.selectedProduct?.name,
         'Order Total': parseFloat(total),
         'Gift Message': document.getElementById('giftMessage').value,
-        'Swapped Image URL': state.swappedImageUrl || '',
+        'Swapped Image URL': imageUrl || state.swappedImageUrl || '',
         'Ordered At': new Date().toISOString(),
       }})
     });
   } catch(err) { console.error('Airtable error:', err); }
   return orderRef;
+}
+
+// ══════════════════════════════════════════
+// GELATO PRINT FULFILMENT
+// ══════════════════════════════════════════
+
+async function uploadSwappedImageToCloudinary(base64DataUrl) {
+  // Upload face-swapped image to Cloudinary so we have a public URL
+  // Gelato needs a URL, not base64
+  debugLog('Uploading swapped image to Cloudinary...');
+
+  const formData = new FormData();
+  // Convert base64 to blob
+  const response = await fetch(base64DataUrl);
+  const blob = await response.blob();
+  formData.append('file', blob, 'faceswap.jpg');
+  formData.append('upload_preset', CONFIG.cloudinaryUploadPreset);
+  formData.append('folder', 'faceswapgifts/orders');
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CONFIG.cloudinaryCloud}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error('Failed to upload image to Cloudinary');
+  const data = await res.json();
+  debugLog('Image uploaded: ' + data.secure_url);
+  return data.secure_url;
+}
+
+async function placeGelatoOrder(orderRef, imageUrl, customerDetails, product) {
+  debugLog('Placing Gelato order...');
+
+  const productUid = CONFIG.gelatoProducts[product.type];
+  if (!productUid || productUid.startsWith('YOUR_')) {
+    debugLog('No Gelato UID for product: ' + product.type + ' — skipping print order');
+    return null;
+  }
+
+  // Split customer name into first/last
+  const nameParts = customerDetails.name.trim().split(' ');
+  const firstName = nameParts[0];
+  const lastName  = nameParts.slice(1).join(' ') || firstName;
+
+  const orderPayload = {
+    orderType:          'order',
+    orderReferenceId:   orderRef,
+    customerReferenceId: customerDetails.email,
+    currency:           'GBP',
+    items: [{
+      itemReferenceId: orderRef + '-1',
+      productUid:      productUid,
+      files: [{
+        type: 'default',
+        url:  imageUrl,
+      }],
+      quantity: 1,
+    }],
+    shipmentMethodUid: 'normal',
+    shippingAddress: {
+      firstName:    firstName,
+      lastName:     lastName,
+      addressLine1: customerDetails.addr1,
+      addressLine2: customerDetails.addr2 || '',
+      city:         customerDetails.city  || '',
+      postCode:     customerDetails.postcode,
+      country:      'GB',
+      email:        customerDetails.email,
+      phone:        customerDetails.phone || '',
+    },
+  };
+
+  debugLog('Sending to Gelato: ' + JSON.stringify(orderPayload).substring(0, 200));
+
+  const res = await fetch(CONFIG.gelatoApiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY':    CONFIG.gelatoApiKey,
+    },
+    body: JSON.stringify(orderPayload),
+  });
+
+  const responseText = await res.text();
+  debugLog('Gelato response: ' + res.status + ' — ' + responseText.substring(0, 200));
+
+  if (!res.ok) throw new Error('Gelato order failed: ' + responseText);
+
+  const data = JSON.parse(responseText);
+  debugLog('Gelato order placed! ID: ' + data.id);
+  return data;
 }
 
 // ══════════════════════════════════════════
