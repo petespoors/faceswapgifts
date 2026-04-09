@@ -3,34 +3,28 @@
 // ═══════════════════════════════════════════
 
 const CONFIG = {
-  segmindApiKey:        'SG_3a1babf77f819ac3',
-  segmindFaceswapModel: 'https://api.segmind.com/v1/faceswap-v5',
-  segmindMockupModel:   'https://api.segmind.com/v1/sdxl1.0-txt2img',
-  stripePublicKey:      'YOUR_STRIPE_PUBLIC_KEY',
-  airtableApiKey:       'YOUR_AIRTABLE_API_KEY',
-  airtableBaseId:       'YOUR_AIRTABLE_BASE_ID',
-  airtableTableName:    'Orders',
-  gelatoApiKey:         'ff70b053-951d-4190-b86e-249d87ffb724-a54fdd47-f3a1-4c07-b3c9-c6cbf03b8180:3abd3d71-87d7-434e-bbbc-3eade7db6671',
-  gelatoApiUrl:         'https://order.gelatoapis.com/v4/orders',
-  cloudinaryCloud:      'dcyp4e7sp',
+  segmindApiKey:          'SG_3a1babf77f819ac3',
+  segmindFaceswapModel:   'https://api.segmind.com/v1/faceswap-v5',
+  stripePublicKey:        'pk_live_51TFy0KDrWqvlPy596IccmG97DeU23QmJnZER6h7P7Piu3cvFiMyVilrrJ09e1I6cje3FztrWHBym4BFsk3dIthzs0028GtYLgh',
+  workerUrl:              'https://eswapgifts.faceswapgifts.workers.dev',
+  cloudinaryCloud:        'dcyp4e7sp',
   cloudinaryUploadPreset: 'faceswapgifts',
-  deliveryPrice:        3.99,
-  freeDeliveryThreshold: 30.00,
-  version:              'v6.15',
-  versionDate:          'March 2026',
+  deliveryPrice:          3.99,
+  freeDeliveryThreshold:  30.00,
+  version:                'v6.16',
+  versionDate:            'April 2026',
 
-  // Gelato Product UIDs
   gelatoProducts: {
     mug:       'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
+    tote:      'bag_product_bsc_tote-bag_bqa_prm_bsi_std-t_bco_natural_bpr_4-0',
     pillow:    'YOUR_PILLOW_UID',
     blanket:   'YOUR_BLANKET_UID',
     canvas:    'YOUR_CANVAS_UID',
     tshirt:    'YOUR_TSHIRT_UID',
     phonecase: 'YOUR_PHONECASE_UID',
-    tote:      'YOUR_TOTE_UID',
     poster:    'YOUR_POSTER_UID',
   },
-};
+};;
 
 // ── STATE ──
 let state = {
@@ -658,28 +652,46 @@ async function initiatePayment() {
       }
     }
 
-    // Step 2 — Save order to Airtable
+    // Step 2 — Create Stripe Payment Intent via Worker
+    debugLog('Creating Stripe payment intent...');
+    btn.textContent = 'Preparing payment...';
+    const total = (state.selectedProductPrice || 0) + CONFIG.deliveryPrice;
+    const orderRef = generateOrderRef();
+
+    const stripeRes = await fetch(CONFIG.workerUrl + '/stripe-payment', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: total, currency: 'gbp', orderRef }),
+    });
+    const stripeData = await stripeRes.json();
+    debugLog('Stripe: ' + JSON.stringify(stripeData).substring(0, 150));
+    if (!stripeData.success) throw new Error('Payment setup failed: ' + (stripeData.error || 'unknown'));
+    state.paymentIntentId = stripeData.paymentIntentId;
+    state.clientSecret    = stripeData.clientSecret;
+
+    // Step 3 — Place Gelato print order via Worker
     const customerDetails = {
       name:     name,
       email:    email,
       addr1:    addr1,
-      addr2:    document.getElementById('custAddr2').value.trim(),
-      city:     document.getElementById('custAddr2').value.trim(),
+      addr2:    document.getElementById('custAddr2') ? document.getElementById('custAddr2').value.trim() : '',
+      city:     document.getElementById('custCity')  ? document.getElementById('custCity').value.trim()  : '',
       postcode: postcode,
-      phone:    '',
+      phone:    document.getElementById('custPhone') ? document.getElementById('custPhone').value.trim() : '',
     };
-    const orderRef = await saveOrderToAirtable(name, email, addr1, postcode, imageUrl);
 
-    // Step 3 — Place Gelato print order (if we have image URL and product UID)
     if (imageUrl && state.selectedProduct) {
       try {
         btn.textContent = 'Sending to print...';
-        await placeGelatoOrder(orderRef, imageUrl, customerDetails, state.selectedProduct);
-        debugLog('Gelato order placed successfully!');
+        const productUid = CONFIG.gelatoProducts[state.selectedProduct.type];
+        if (productUid && !productUid.startsWith('YOUR_')) {
+          await placeGelatoOrder(orderRef, imageUrl, customerDetails, state.selectedProduct);
+          debugLog('Print order placed!');
+        } else {
+          debugLog('No UID for ' + state.selectedProduct.type + ' — skipping print');
+        }
       } catch(gelatoErr) {
-        debugLog('Gelato order failed: ' + gelatoErr.message);
-        // Don't block the order — log and continue
-        // Admin can manually place in Gelato dashboard
+        debugLog('Gelato error: ' + gelatoErr.message);
       }
     }
 
@@ -797,22 +809,20 @@ async function placeGelatoOrder(orderRef, imageUrl, customerDetails, product) {
 
   debugLog('Sending to Gelato: ' + JSON.stringify(orderPayload).substring(0, 200));
 
-  const res = await fetch(CONFIG.gelatoApiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-KEY':    CONFIG.gelatoApiKey,
-    },
-    body: JSON.stringify(orderPayload),
+  // Route through Cloudflare Worker — avoids CORS, keeps API key secret
+  const res = await fetch(CONFIG.workerUrl + '/gelato-order', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderRef, imageUrl, customerDetails, productUid }),
   });
 
   const responseText = await res.text();
-  debugLog('Gelato response: ' + res.status + ' — ' + responseText.substring(0, 200));
+  debugLog('Gelato Worker response: ' + res.status + ' — ' + responseText.substring(0, 200));
 
   if (!res.ok) throw new Error('Gelato order failed: ' + responseText);
 
   const data = JSON.parse(responseText);
-  debugLog('Gelato order placed! ID: ' + data.id);
+  debugLog('Gelato order placed! ID: ' + (data.gelatoOrderId || 'unknown'));
   return data;
 }
 
