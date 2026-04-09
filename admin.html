@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceSwapGifts — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --orange: #F07A1A; --orange-light: #FFF1E0;
+      --purple: #7C3AED; --purple-light: #F3EEFF;
+      --teal: #0E9F8A; --teal-light: #E0FAF5;
+      --dark: #1C1C2E; --mid: #555566;
+      --border: #E5E7EB; --light: #F8F7FF;
+      --red: #E24B4A; --red-light: #FEE2E2;
+      --green: #10B981; --green-light: #D1FAE5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito', sans-serif; background: #F0F0F8; color: var(--dark); }
+    h1,h2,h3,h4 { font-family: 'Fredoka One', sans-serif; }
+
+    /* LOGIN SCREEN */
+    #loginScreen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #FFF1E0, #F3EEFF);
+    }
+    .login-box {
+      background: white; border-radius: 16px; padding: 40px;
+      width: 100%; max-width: 380px; box-shadow: 0 8px 40px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .login-logo { font-size: 22px; color: var(--orange); margin-bottom: 8px; }
+    .login-logo span { color: var(--purple); }
+    .login-box h2 { font-size: 24px; margin-bottom: 6px; }
+    .login-box p { font-size: 13px; color: var(--mid); margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; padding: 12px 14px; border-radius: 8px;
+      border: 1.5px solid var(--border); font-family: 'Nunito', sans-serif;
+      font-size: 14px; margin-bottom: 12px;
+    }
+    .login-box input:focus { outline: none; border-color: var(--orange); }
+    .btn-login {
+      width: 100%; background: var(--orange); color: white; border: none;
+      border-radius: 50px; padding: 14px;
+      font-family: 'Fredoka One', sans-serif; font-size: 18px; cursor: pointer;
+    }
+    .login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+
+    /* ADMIN LAYOUT */
+    #adminPanel { display: none; min-height: 100vh; }
+    .admin-nav {
+      background: var(--dark); padding: 0 24px; height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .admin-nav-logo { font-family: 'Fredoka One', sans-serif; font-size: 18px; color: var(--orange); }
+    .admin-nav-logo span { color: #A78BFA; }
+    .admin-nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-tab {
+      color: #AAA; font-size: 14px; font-weight: 700; cursor: pointer;
+      padding: 6px 12px; border-radius: 6px; transition: all 0.2s;
+    }
+    .nav-tab:hover, .nav-tab.active { color: white; background: rgba(255,255,255,0.1); }
+    .btn-logout {
+      background: none; border: 1px solid #444; color: #AAA;
+      border-radius: 50px; padding: 6px 16px; font-size: 13px;
+      font-family: 'Nunito', sans-serif; cursor: pointer;
+    }
+
+    .admin-body { max-width: 1100px; margin: 0 auto; padding: 28px 20px; }
+
+    /* TABS */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* CARDS */
+    .card {
+      background: white; border-radius: 14px; padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .card-title { font-size: 20px; margin-bottom: 4px; color: var(--dark); }
+    .card-sub { font-size: 13px; color: var(--mid); margin-bottom: 20px; }
+
+    /* STATS ROW */
+    .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+    .stat-card {
+      background: white; border-radius: 12px; padding: 18px;
+      border: 1px solid var(--border); text-align: center;
+    }
+    .stat-num { font-family: 'Fredoka One', sans-serif; font-size: 32px; }
+    .stat-num.orange { color: var(--orange); }
+    .stat-num.purple { color: var(--purple); }
+    .stat-num.teal { color: var(--teal); }
+    .stat-num.red { color: var(--red); }
+    .stat-label { font-size: 12px; color: var(--mid); font-weight: 700; margin-top: 4px; }
+
+    /* UPLOAD FORM */
+    .upload-form { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block; font-size: 12px; font-weight: 700;
+      color: var(--mid); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .form-group select, .form-group input[type=text] {
+      width: 100%; padding: 10px 14px; border-radius: 8px;
+      border: 1.5px solid var(--border); font-family: 'Nunito', sans-serif;
+      font-size: 14px; color: var(--dark);
+    }
+    .form-group select:focus, .form-group input:focus { outline: none; border-color: var(--orange); }
+
+    .drop-zone {
+      border: 2.5px dashed var(--purple); border-radius: 12px;
+      padding: 40px; text-align: center; background: var(--purple-light);
+      cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover { background: #DDD6FE; border-color: var(--purple); }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-icon { font-size: 40px; margin-bottom: 10px; }
+    .drop-zone h4 { font-size: 18px; margin-bottom: 6px; }
+    .drop-zone p { font-size: 13px; color: var(--mid); }
+
+    .upload-queue { margin-top: 16px; }
+    .queue-item {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--light); border-radius: 8px; padding: 10px 14px;
+      margin-bottom: 8px; font-size: 13px;
+    }
+    .queue-thumb {
+      width: 40px; height: 40px; border-radius: 6px;
+      object-fit: cover; background: #DDD; flex-shrink: 0;
+    }
+    .queue-name { flex: 1; font-weight: 600; color: var(--dark); }
+    .queue-status { font-size: 12px; font-weight: 700; }
+    .queue-status.pending { color: var(--mid); }
+    .queue-status.uploading { color: var(--orange); }
+    .queue-status.done { color: var(--teal); }
+    .queue-status.error { color: var(--red); }
+    .queue-bar { height: 4px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+    .queue-bar-fill { height: 100%; background: var(--orange); border-radius: 2px; width: 0%; transition: width 0.3s; }
+
+    .btn-upload-all {
+      background: var(--orange); color: white; border: none;
+      border-radius: 50px; padding: 14px 36px;
+      font-family: 'Fredoka One', sans-serif; font-size: 18px; cursor: pointer;
+      margin-top: 16px; transition: background 0.2s;
+    }
+    .btn-upload-all:hover { background: #C05A00; }
+    .btn-upload-all:disabled { background: #CCC; cursor: not-allowed; }
+
+    /* IMAGE LIBRARY */
+    .library-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+    .library-filters select {
+      padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+      font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
+    }
+    .library-grid { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px; }
+    .lib-card {
+      border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden;
+      background: white; position: relative;
+    }
+    .lib-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+    .lib-card-info { padding: 6px 8px; }
+    .lib-card-name { font-size: 11px; font-weight: 700; color: var(--dark); }
+    .lib-card-meta { font-size: 10px; color: var(--mid); }
+    .lib-card-delete {
+      position: absolute; top: 4px; right: 4px;
+      background: rgba(226,75,74,0.9); color: white; border: none;
+      border-radius: 50%; width: 22px; height: 22px; font-size: 12px;
+      cursor: pointer; display: none; align-items: center; justify-content: center;
+    }
+    .lib-card:hover .lib-card-delete { display: flex; }
+    .lib-empty { text-align: center; padding: 40px; color: var(--mid); grid-column: 1/-1; }
+
+    /* CATEGORIES */
+    .cat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+    .cat-card {
+      background: var(--light); border-radius: 10px; padding: 16px;
+      border: 1.5px solid var(--border);
+    }
+    .cat-card h4 { font-size: 16px; margin-bottom: 4px; }
+    .cat-count { font-size: 13px; color: var(--mid); margin-bottom: 12px; }
+    .cat-actions { display: flex; gap: 8px; }
+    .btn-sm {
+      padding: 6px 14px; border-radius: 50px; font-size: 12px; font-weight: 700;
+      font-family: 'Nunito', sans-serif; cursor: pointer; border: none;
+    }
+    .btn-sm-orange { background: var(--orange-light); color: var(--orange); }
+    .btn-sm-red { background: var(--red-light); color: var(--red); }
+    .btn-sm-teal { background: var(--teal-light); color: var(--teal); }
+
+    .add-category-form {
+      display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px;
+      align-items: end; margin-top: 20px;
+    }
+    .btn-add-cat {
+      background: var(--purple); color: white; border: none;
+      border-radius: 8px; padding: 10px 20px;
+      font-family: 'Fredoka One', sans-serif; font-size: 16px; cursor: pointer;
+      white-space: nowrap;
+    }
+
+    /* ORDERS */
+    .orders-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .orders-table th {
+      text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700;
+      color: var(--mid); text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border); background: var(--light);
+    }
+    .orders-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .orders-table tr:hover td { background: var(--light); }
+    .status-badge {
+      display: inline-block; border-radius: 50px; padding: 3px 10px;
+      font-size: 11px; font-weight: 700;
+    }
+    .status-new { background: var(--orange-light); color: var(--orange); }
+    .status-approved { background: var(--teal-light); color: var(--teal); }
+    .status-printed { background: var(--purple-light); color: var(--purple); }
+    .status-shipped { background: var(--green-light); color: var(--green); }
+    .btn-approve {
+      background: var(--teal-light); color: var(--teal); border: none;
+      border-radius: 50px; padding: 5px 12px; font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+    }
+    .order-thumb {
+      width: 44px; height: 44px; border-radius: 6px;
+      object-fit: cover; background: #EEE;
+    }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 12px 24px; border-radius: 50px; font-weight: 700; font-size: 14px;
+      z-index: 999; display: none; color: white;
+      font-family: 'Nunito', sans-serif;
+    }
+
+    @media (max-width: 768px) {
+      .stats-row { grid-template-columns: repeat(2,1fr); }
+      .upload-form { grid-template-columns: 1fr; }
+      .library-grid { grid-template-columns: repeat(3,1fr); }
+      .cat-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">FaceSwap<span>Gifts</span></div>
+    <h2>Admin Panel</h2>
+    <p>Sign in to manage your site</p>
+    <input type="text" id="adminUser" placeholder="Username" onkeydown="if(event.key==='Enter')adminLogin()">
+    <input type="password" id="adminPass" placeholder="Password" onkeydown="if(event.key==='Enter')adminLogin()">
+    <button class="btn-login" onclick="adminLogin()">Sign In</button>
+    <div class="login-error" id="loginError">Incorrect username or password</div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN PANEL ═══ -->
+<div id="adminPanel">
+
+  <nav class="admin-nav">
+    <div class="admin-nav-logo">FaceSwap<span>Gifts</span> <span style="color:#555;font-size:13px;font-family:'Nunito',sans-serif;font-weight:700;">Admin</span> <span style="color:#444;font-size:11px;font-family:'Nunito',sans-serif;font-weight:400;margin-left:8px;" id="versionBadge"></span></div>
+    <div class="admin-nav-right">
+      <div class="nav-tab active" onclick="showTab('dashboard')">Dashboard</div>
+      <div class="nav-tab" onclick="showTab('upload')">Upload Images</div>
+      <div class="nav-tab" onclick="showTab('library')">Image Library</div>
+      <div class="nav-tab" onclick="showTab('categories')">Categories</div>
+      <div class="nav-tab" onclick="showTab('orders')">Orders</div>
+      <button class="btn-logout" onclick="adminLogout()">Sign out</button>
+    </div>
+  </nav>
+
+  <div class="admin-body">
+
+    <!-- DASHBOARD TAB -->
+    <div class="tab-panel active" id="tab-dashboard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <h2 style="font-size:28px;">Good to see you! 👋</h2>
+        <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
+          <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
+          Version: <strong id="versionNum">v6.15</strong><br>
+          Deployed: <strong>March 2026</strong><br>
+          Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
+        </div>
+      </div>
+      <p style="color:var(--mid);font-size:14px;margin-bottom:24px;">Here's what's happening with FaceSwapGifts today.</p>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num orange" id="statImages">0</div>
+          <div class="stat-label">Images in Library</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num purple" id="statCategories">6</div>
+          <div class="stat-label">Character Categories</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num teal" id="statOrders">0</div>
+          <div class="stat-label">Total Orders</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num red" id="statPending">0</div>
+          <div class="stat-label">Awaiting Approval</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Quick actions</div>
+        <div class="card-sub">Common tasks at a glance</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <button class="btn-sm btn-sm-orange" style="font-size:14px;padding:10px 20px;" onclick="showTab('upload')">+ Upload new images</button>
+          <button class="btn-sm btn-sm-teal" style="font-size:14px;padding:10px 20px;" onclick="showTab('orders')">Review new orders</button>
+          <button class="btn-sm btn-sm-orange" style="font-size:14px;padding:10px 20px;" onclick="showTab('categories')">Manage categories</button>
+          <a href="/" target="_blank"><button class="btn-sm" style="font-size:14px;padding:10px 20px;background:var(--purple-light);color:var(--purple);">View live site</button></a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cloudinary storage</div>
+        <div class="card-sub">Your image hosting account status</div>
+        <div id="cloudinaryStatus" style="font-size:14px;color:var(--mid);">Checking connection...</div>
+      </div>
+    </div>
+
+    <!-- UPLOAD TAB -->
+    <div class="tab-panel" id="tab-upload">
+      <div class="card">
+        <div class="card-title">Upload Character Images</div>
+        <div class="card-sub">Tags are read automatically from the filename — just drag in as many images as you like!</div>
+
+        <div style="background:var(--teal-light);border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#0F6E56;">
+          <strong>Expected filename format:</strong><br>
+          <code style="font-size:12px;background:rgba(0,0,0,0.08);padding:4px 8px;border-radius:4px;display:inline-block;margin-top:6px;">Character Type-Gender-Age Group-image-NNN-N.jpg</code><br>
+          <span style="margin-top:6px;display:block;">Example: Armed Forces-Female-Child 6-9 years old-image-341-0.jpg</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-num orange" id="statQueued">0</div><div class="stat-label">Queued</div></div>
+          <div class="stat-card"><div class="stat-num teal" id="statDone">0</div><div class="stat-label">Uploaded</div></div>
+          <div class="stat-card"><div class="stat-num red" id="statFailed">0</div><div class="stat-label">Failed</div></div>
+          <div class="stat-card"><div class="stat-num purple" id="statSkipped">0</div><div class="stat-label">Bad filename</div></div>
+        </div>
+
+        <!-- Action buttons ABOVE drop zone -->
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn-upload-all" id="uploadAllBtn" onclick="uploadAll()" disabled>Upload All to Cloudinary</button>
+          <button class="btn-sm btn-sm-red" id="clearQueueBtn" onclick="clearQueue()" style="display:none;padding:14px 24px;font-size:14px;">Clear Queue</button>
+        </div>
+
+        <!-- Drop zone / file picker -->
+        <div style="margin-bottom:16px;">
+          <label for="fileInput" style="display:block;border:2.5px dashed var(--purple);border-radius:12px;padding:40px;text-align:center;background:var(--purple-light);cursor:pointer;transition:background 0.2s;" id="dropZone"
+            ondragover="event.preventDefault();this.style.background='#DDD6FE'"
+            ondragleave="this.style.background=''"
+            ondrop="event.preventDefault();this.style.background='';handleFiles(event.dataTransfer.files)">
+            <div style="font-size:40px;margin-bottom:10px;">&#128444;&#65039;</div>
+            <h4 style="font-size:18px;margin-bottom:6px;">Click here to choose your images</h4>
+            <p style="font-size:13px;color:var(--mid);">or drag and drop onto this area — tags read from filename automatically</p>
+          </label>
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple style="display:none;">
+        </div>
+
+        <div class="upload-queue" id="uploadQueue"></div>
+      </div>
+
+      <div class="card" id="problemsCard" style="display:none;">
+        <div class="card-title" style="color:var(--red);">Filename Issues Detected</div>
+        <div class="card-sub">These files could not be auto-tagged. Check the filename format and re-upload.</div>
+        <div id="problemsList"></div>
+      </div>
+    </div>
+
+    <!-- DUMMY DIV TO REPLACE OLD UPLOAD FORM CONTENT
+
+        <!-- LIBRARY TAB -->
+    <div class="tab-panel" id="tab-library">
+      <div class="card">
+        <div class="card-title">Image Library</div>
+        <div class="card-sub">All images currently hosted on Cloudinary. Hover over an image to delete it.</div>
+
+        <div class="library-filters">
+          <select id="libFilterType" onchange="loadLibrary()">
+            <option value="">All Characters</option>
+          </select>
+          <select id="libFilterGender" onchange="loadLibrary()">
+            <option value="">Any gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <select id="libFilterAge" onchange="loadLibrary()">
+            <option value="">Any age</option>
+            <option value="toddler">Toddler</option>
+            <option value="child">Child</option>
+            <option value="teenager">Teenager</option>
+            <option value="young-adult">Young Adult</option>
+            <option value="older-adult">Older Adult</option>
+          </select>
+
+          <button class="btn-sm btn-sm-teal" onclick="loadLibrary()" style="padding:8px 16px;font-size:13px;">Refresh</button>
+        </div>
+
+        <div class="library-grid" id="libraryGrid">
+          <div class="lib-empty">Loading images from Cloudinary...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORIES TAB -->
+    <div class="tab-panel" id="tab-categories">
+      <div class="card">
+        <div class="card-title">Character Categories</div>
+        <div class="card-sub">Manage which character types appear on your site. Add new ones here.</div>
+
+        <div class="cat-grid" id="catGrid">
+          <!-- Populated by JS -->
+        </div>
+
+        <div style="margin-top:20px;background:var(--teal-light);border-radius:10px;padding:14px 18px;font-size:13px;color:#0F6E56;" id="addCatNote">
+          <strong>Adding new character types:</strong> Upload images with the new character type name in the filename
+          (e.g. <code style="background:rgba(0,0,0,0.08);padding:2px 6px;border-radius:4px;">Samurai Warriors-Female-Toddler-image-001-0.jpg</code>),
+          then run <strong>generate_characters.py</strong> and redeploy. New categories appear here automatically.
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDERS TAB -->
+    <div class="tab-panel" id="tab-orders">
+      <div class="card">
+        <div class="card-title">Orders</div>
+        <div class="card-sub">Review and approve face-swapped images before sending to print.</div>
+        <div id="ordersContent">
+          <p style="color:var(--mid);font-size:14px;">Connect your Airtable account in app.js to see live orders here.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG — your Cloudinary credentials
+// ════════════════════════════════════════
+const CLOUD = {
+  cloudName: 'dcyp4e7sp',
+  apiKey: '863255758146836',
+  // API Secret is used server-side only — never put it in client JS in production
+  // For now we use unsigned uploads with a preset
+  uploadPreset: 'faceswapgifts', // We'll create this unsigned preset in Cloudinary
+  folder: 'faceswapgifts',
+};
+
+// Admin credentials — change these to something only you know!
+const ADMIN = {
+  username: 'admin',
+  password: 'FSG2025admin!',
+};
+
+// ════════════════════════════════════════
+// LOGIN
+// ════════════════════════════════════════
+function adminLogin() {
+  const u = document.getElementById('adminUser').value;
+  const p = document.getElementById('adminPass').value;
+  if (u === ADMIN.username && p === ADMIN.password) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminPanel').style.display = 'block';
+    sessionStorage.setItem('fsg_admin', '1');
+    initAdmin();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('fsg_admin');
+  location.reload();
+}
+
+// Auto-login if session active
+if (sessionStorage.getItem('fsg_admin')) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminPanel').style.display = 'block';
+  initAdmin();
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+function initAdmin() {
+  checkCloudinary();
+  renderCategories();
+  loadLibrary();
+  setupDragDrop();
+  // Set version badge in nav
+  const badge = document.getElementById('versionBadge');
+  if (badge) badge.textContent = 'v6.15';
+}
+
+// ════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  // Refresh categories when tab opens
+  if (name === 'categories') renderCategories();
+  if (name === 'library') loadLibrary();
+}
+
+// ════════════════════════════════════════
+// CLOUDINARY CHECK
+// ════════════════════════════════════════
+async function checkCloudinary() {
+  try {
+    const res = await fetch('characters.json?v=' + Date.now());
+    if (!res.ok) throw new Error('not found');
+    const data = await res.json();
+    const count = data.totalImages || 0;
+    const chars = data.characters ? data.characters.length : 0;
+    const generated = data.generated ? new Date(data.generated).toLocaleDateString('en-GB') : 'unknown';
+    document.getElementById('cloudinaryStatus').innerHTML =
+      `<span style="color:var(--teal);font-weight:700;">✅ Connected</span> — Cloud: <strong>${CLOUD.cloudName}</strong> · <strong>${count}</strong> images · <strong>${chars}</strong> character variants · Last updated: ${generated}`;
+    document.getElementById('statImages').textContent = count;
+    document.getElementById('statCategories').textContent = [...new Set((data.characters||[]).map(c=>c.type))].length;
+  } catch(e) {
+    document.getElementById('cloudinaryStatus').innerHTML =
+      `<span style="color:var(--orange);font-weight:700;">⚠️ characters.json not found</span> — Run generate_characters.py then redeploy the site.`;
+  }
+}
+
+// ════════════════════════════════════════
+// FILENAME PARSER
+// Reads tags directly from filename
+// Format: CharType-Gender-Age-Ethnicity-image-NNN-N.jpeg
+// ════════════════════════════════════════
+function parseFilename(filename) {
+  // Clean filename
+  let name = filename
+    .replace(/\.(jpe?g|png|webp)$/i, '')
+    .replace(/\[|\]|\]+/g, '')
+    .trim();
+
+  // Match: CharType-Gender-Age-image-NNN-N
+  // Gender is Male or Female
+  const genderMatch = name.match(/^(.+?)-(Male|Female)-(.+?)-image-/i);
+  if (!genderMatch) return null;
+
+  let charType = genderMatch[1].trim().replace(/_/g, ' ');
+  const gender  = genderMatch[2].trim();
+  let rawAge    = genderMatch[3].trim();
+
+  // Fix character type names
+  const charMap = {
+    'Armed Forces': 'Armed Forces', 'Circus Performers': 'Circus Performers',
+    'Egyptian Pharaohs': 'Egyptian Pharaohs', 'Medieval Monks': 'Medieval Monks',
+    'Steampunk Adventurers': 'Steampunk Adventurers', 'Cowboy': 'Cowboys',
+    'Superheros': 'Superheroes',
+  };
+  charType = charMap[charType] || charType;
+
+  // Fix age format
+  const ageMap = {
+    'Child_6to9_years_old':         'Child 6-9 years old',
+    'Child 6to9 years old':         'Child 6-9 years old',
+    'Teenager_13to16_years_old':    'Teenager 13-16 years old',
+    'Teenager 13to16 years old':    'Teenager 13-16 years old',
+    'Young_Adult_22to30_years_old': 'Young Adult 22-30 years old',
+    'Young Adult 22to30 years old': 'Young Adult 22-30 years old',
+    'Older_Adult_60to70_years_old': 'Older Adult 60-70 years old',
+    'Older Adult 60to70 years old': 'Older Adult 60-70 years old',
+    'Toddler': 'Toddler',
+  };
+  const normAge = rawAge.replace(/_/g,' ');
+  const age = ageMap[rawAge] || ageMap[normAge] || normAge;
+
+  const folder = charType.toLowerCase().replace(/\s+/g, '-');
+  const tags   = [charType, gender, age].map(t => t.toLowerCase().replace(/[\s-]+/g,'-')).join(',');
+
+  return { charType, gender: gender.toLowerCase(), age, folder, tags,
+           context: `type=${charType}|gender=${gender}|age=${age}` };
+}
+
+// DUMMY_PLACEHOLDER_START
+
+// ════════════════════════════════════════
+// FILE UPLOAD QUEUE
+// ════════════════════════════════════════
+let fileQueue = [];
+let countDone = 0, countFailed = 0, countSkipped = 0;
+
+function updateStats() {
+  document.getElementById('statQueued').textContent = fileQueue.filter(f => f.status === 'pending').length;
+  document.getElementById('statDone').textContent = countDone;
+  document.getElementById('statFailed').textContent = countFailed;
+  document.getElementById('statSkipped').textContent = countSkipped;
+}
+
+function setupDragDrop() {
+  // File picker change event
+  const input = document.getElementById('fileInput');
+  input.addEventListener('change', function() {
+    if (this.files && this.files.length > 0) {
+      handleFiles(this.files);
+      this.value = '';
+    }
+  });
+}
+
+function handleFiles(files) {
+  const problems = [];
+  Array.from(files).forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const tags = parseFilename(file.name);
+    const id = Date.now() + Math.random();
+    if (!tags) {
+      problems.push(file.name);
+      countSkipped++;
+    } else {
+      fileQueue.push({ id, file, tags, status: 'pending' });
+      renderQueueItem(id, file, tags);
+    }
+  });
+  
+  if (problems.length > 0) {
+    const card = document.getElementById('problemsCard');
+    const list = document.getElementById('problemsList');
+    card.style.display = 'block';
+    problems.forEach(p => {
+      const d = document.createElement('div');
+      d.style.cssText = 'padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border);color:var(--red);';
+      d.textContent = p;
+      list.appendChild(d);
+    });
+  }
+
+  document.getElementById('uploadAllBtn').disabled = fileQueue.filter(f=>f.status==='pending').length === 0;
+  document.getElementById('clearQueueBtn').style.display = fileQueue.length > 0 ? 'block' : 'none';
+  updateStats();
+}
+
+function clearQueue() {
+  fileQueue = []; countDone = 0; countFailed = 0; countSkipped = 0;
+  document.getElementById('uploadQueue').innerHTML = '';
+  const btn = document.getElementById('uploadAllBtn');
+  btn.disabled = true;
+  btn.textContent = 'Upload All to Cloudinary';
+  document.getElementById('clearQueueBtn').style.display = 'none';
+  document.getElementById('problemsCard').style.display = 'none';
+  document.getElementById('problemsList').innerHTML = '';
+  updateStats();
+}
+
+function renderQueueItem(id, file, tags) {
+  // We do not render individual items — summary is shown instead
+  // This keeps the upload page clean regardless of batch size
+  updateQueueSummary();
+}
+
+function updateQueueSummary() {
+  const queue = document.getElementById('uploadQueue');
+  const total   = fileQueue.length;
+  const pending = fileQueue.filter(f => f.status === 'pending').length;
+  const done    = fileQueue.filter(f => f.status === 'done').length;
+  const failed  = fileQueue.filter(f => f.status === 'error').length;
+
+  if (total === 0) { queue.innerHTML = ''; return; }
+
+  // Get current uploading file
+  const current = fileQueue.find(f => f.status === 'uploading');
+  const currentName = current ? current.file.name : '';
+
+  // Progress percentage
+  const pct = total > 0 ? Math.round((done + failed) / total * 100) : 0;
+
+  // Group by character type for summary
+  const byType = {};
+  fileQueue.forEach(f => {
+    const t = f.tags ? f.tags.charType : 'Unknown';
+    if (!byType[t]) byType[t] = { total: 0, done: 0, failed: 0 };
+    byType[t].total++;
+    if (f.status === 'done')  byType[t].done++;
+    if (f.status === 'error') byType[t].failed++;
+  });
+
+  const typeRows = Object.entries(byType).map(([type, counts]) => `
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span>${type}</span>
+      <span style="color:var(--teal);font-weight:700;">${counts.done}/${counts.total}</span>
+    </div>`).join('');
+
+  queue.innerHTML = `
+    <div style="background:var(--light);border-radius:10px;padding:16px;margin-top:12px;">
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-weight:700;font-size:14px;">Batch progress</span>
+        <span style="font-family:'Fredoka One',sans-serif;font-size:22px;color:var(--orange);">${pct}%</span>
+      </div>
+
+      <div style="background:var(--border);border-radius:4px;height:8px;margin-bottom:14px;">
+        <div style="background:var(--teal);height:8px;border-radius:4px;width:${pct}%;transition:width 0.3s;"></div>
+      </div>
+
+      ${current ? `<div style="font-size:12px;color:var(--mid);margin-bottom:12px;">
+        Currently uploading: <strong>${currentName}</strong>
+      </div>` : ''}
+
+      <div style="margin-bottom:10px;">${typeRows}</div>
+
+      <div style="display:flex;gap:16px;font-size:13px;margin-top:8px;">
+        <span>Total: <strong>${total}</strong></span>
+        <span style="color:var(--teal);">Done: <strong>${done}</strong></span>
+        ${failed > 0 ? `<span style="color:var(--red);">Failed: <strong>${failed}</strong></span>` : ''}
+        <span style="color:var(--mid);">Remaining: <strong>${pending}</strong></span>
+      </div>
+    </div>`;
+}
+
+async function uploadAll() {
+  const btn = document.getElementById('uploadAllBtn');
+  btn.disabled = true; btn.textContent = 'Uploading...';
+
+  const pending = fileQueue.filter(f => f.status === 'pending');
+  for (const item of pending) {
+    await uploadToCloudinary(item);
+  }
+
+  btn.textContent = 'All done!';
+  updateQueueSummary();
+  showToast(`Uploaded ${countDone} images successfully! Run generate_characters.py to update the site.`, 'success');
+}
+
+async function uploadToCloudinary(item) {
+  item.status = 'uploading';
+  updateQueueSummary();
+
+  const formData = new FormData();
+  formData.append('file', item.file);
+  formData.append('upload_preset', CLOUD.uploadPreset);
+  formData.append('folder', `${CLOUD.folder}/${item.tags.folder}`);
+  formData.append('tags', item.tags.tags);
+  formData.append('context', item.tags.context);
+  // Store original filename so we can always trace back
+  formData.append('public_id', item.file.name.replace(/\.(jpe?g|png|webp)$/i,''));
+
+  try {
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD.cloudName}/image/upload`, {
+      method: 'POST', body: formData
+    });
+
+    if (!res.ok) throw new Error('Upload failed');
+    item.status = 'done';
+    countDone++;
+
+  } catch(err) {
+    item.status = 'error';
+    countFailed++;
+  }
+  updateStats();
+  updateQueueSummary();
+}
+
+// ════════════════════════════════════════
+// IMAGE LIBRARY
+// ════════════════════════════════════════
+async function loadLibrary() {
+  const grid = document.getElementById('libraryGrid');
+  grid.innerHTML = '<div class="lib-empty">Loading...</div>';
+
+  const typeFilter   = document.getElementById('libFilterType').value;
+  const genderFilter = document.getElementById('libFilterGender').value;
+  const ageFilter    = document.getElementById('libFilterAge').value;
+
+  try {
+    const res = await fetch('characters.json?v=' + Date.now());
+    if (!res.ok) throw new Error('characters.json not found');
+    const data = await res.json();
+    let characters = data.characters || [];
+
+    // Populate type filter dynamically if not already done
+    const typeSelect = document.getElementById('libFilterType');
+    if (typeSelect.options.length <= 1) {
+      const types = [...new Set(characters.map(c => c.type))].sort();
+      types.forEach(key => {
+        const label = characters.find(c => c.type === key)?.typeLabel || key;
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        typeSelect.appendChild(opt);
+      });
+    }
+
+    // Apply filters
+    if (typeFilter)   characters = characters.filter(c => c.type === typeFilter);
+    if (genderFilter) characters = characters.filter(c => c.gender.toLowerCase() === genderFilter);
+    if (ageFilter) {
+      const ageMap = {
+        'toddler':     'toddler',
+        'child':       'child 6-9',
+        'teenager':    'teenager',
+        'young-adult': 'young adult',
+        'older-adult': 'older adult',
+      };
+      const search = ageMap[ageFilter] || ageFilter;
+      characters = characters.filter(c => c.age.toLowerCase().includes(search));
+    }
+
+    if (characters.length === 0) {
+      grid.innerHTML = '<div class="lib-empty">No images match these filters.</div>';
+      document.getElementById('statImages').textContent = 0;
+      return;
+    }
+
+    document.getElementById('statImages').textContent = data.totalImages || characters.length;
+    grid.innerHTML = '';
+
+    characters.forEach(char => {
+      const div = document.createElement('div');
+      div.className = 'lib-card';
+      div.innerHTML = `
+        <img src="${char.imageUrl}" loading="lazy" alt="${char.typeLabel}"
+             style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block;">
+        <div class="lib-card-info">
+          <div class="lib-card-name">${char.typeLabel}</div>
+          <div class="lib-card-meta">${char.gender} &middot; ${char.age}</div>
+        </div>
+      `;
+      grid.appendChild(div);
+    });
+
+  } catch(e) {
+    grid.innerHTML = `<div class="lib-empty">
+      Could not load image library.<br>
+      <small>Make sure characters.json is up to date and the site has been redeployed.<br>${e.message}</small>
+    </div>`;
+  }
+}
+
+function confirmDelete(publicId, card) {
+  showToast('To delete images, use your Cloudinary dashboard at cloudinary.com', 'info');
+}
+
+async function deleteImage(publicId, card) {
+  if (!confirm('Delete this image? This cannot be undone.')) return;
+  // Note: deletion requires server-side signing — show instruction
+  showToast('To delete images, use your Cloudinary dashboard at cloudinary.com', 'info');
+}
+
+// ════════════════════════════════════════
+// CATEGORIES
+// ════════════════════════════════════════
+let categories = [
+  { key: 'viking',    name: 'Viking Warrior',       emoji: '⚔️' },
+  { key: 'pharaoh',   name: 'Pharaoh',               emoji: '👑' },
+  { key: 'knight',    name: 'Knight',                emoji: '🛡️' },
+  { key: 'pirate',    name: 'Pirate Captain',        emoji: '🏴‍☠️' },
+  { key: 'steampunk', name: 'Steampunk Explorer',    emoji: '🔭' },
+  { key: 'fantasy',   name: 'Fantasy / Mythological',emoji: '🧙' },
+];
+
+async function renderCategories() {
+  const grid = document.getElementById('catGrid');
+  grid.innerHTML = '<div style="grid-column:1/-1;color:var(--mid);font-size:14px;">Loading categories...</div>';
+
+  try {
+    // Load directly from characters.json — always up to date
+    const res = await fetch('characters.json?v=' + Date.now());
+    if (!res.ok) throw new Error('characters.json not found');
+    const data = await res.json();
+    const chars = data.characters || [];
+
+    // Build category list from actual data
+    const typeMap = {};
+    chars.forEach(c => {
+      if (!typeMap[c.type]) {
+        typeMap[c.type] = {
+          key:    c.type,
+          name:   c.typeLabel,
+          emoji:  c.emoji,
+          male:   0,
+          female: 0,
+          total:  0,
+        };
+      }
+      if (c.gender === 'male')   typeMap[c.type].male   += c.totalImages || 1;
+      if (c.gender === 'female') typeMap[c.type].female += c.totalImages || 1;
+      typeMap[c.type].total += c.totalImages || 1;
+    });
+
+    const cats = Object.values(typeMap).sort((a,b) => a.name.localeCompare(b.name));
+    document.getElementById('statCategories').textContent = cats.length;
+
+    grid.innerHTML = '';
+    cats.forEach(cat => {
+      const div = document.createElement('div');
+      div.className = 'cat-card';
+      div.innerHTML = `
+        <h4>${cat.emoji} ${cat.name}</h4>
+        <div class="cat-count">
+          ${cat.total} images &nbsp;·&nbsp;
+          ${cat.male} male &nbsp;·&nbsp;
+          ${cat.female} female
+        </div>
+        <div class="cat-actions">
+          <button class="btn-sm btn-sm-orange" onclick="document.querySelectorAll('.nav-tab')[1].click()">Upload more</button>
+        </div>
+      `;
+      grid.appendChild(div);
+    });
+
+    // Also update the add category note
+    const note = document.getElementById('addCatNote');
+    if (note) note.style.display = 'block';
+
+  } catch(e) {
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--red);font-size:14px;">
+      Could not load categories. Make sure characters.json is up to date.<br><small>${e.message}</small>
+    </div>`;
+  }
+}
+
+function addCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  const key = document.getElementById('newCatKey').value.trim().toLowerCase().replace(/\s/g,'');
+  if (!name || !key) { showToast('Please enter both a name and a key', 'error'); return; }
+  if (categories.find(c => c.key === key)) { showToast('That key already exists', 'error'); return; }
+  categories.push({ key, name, emoji: '🎭' });
+  renderCategories();
+  document.getElementById('newCatName').value = '';
+  document.getElementById('newCatKey').value = '';
+  showToast(`Category "${name}" added!`, 'success');
+}
+
+function removeCategory(i) {
+  if (!confirm(`Remove "${categories[i].name}"? This won't delete uploaded images.`)) return;
+  categories.splice(i,1);
+  renderCategories();
+}
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  const colors = { success:'#0E9F8A', error:'#E24B4A', info:'#7C3AED' };
+  t.style.background = colors[type];
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3500);
+}
+</script>
+</body>
+</html>
