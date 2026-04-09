@@ -5,13 +5,13 @@
 const CONFIG = {
   segmindApiKey:          'SG_3a1babf77f819ac3',
   segmindFaceswapModel:   'https://api.segmind.com/v1/faceswap-v5',
-  stripePublicKey:        'pk_live_51TFy0KDrWqvlPy596IccmG97DeU23QmJnZER6h7P7Piu3cvFiMyVilrrJ09e1I6cje3FztrWHBym4BFsk3dIthzs0028GtYLgh',
+  stripePublicKey:        'pk_test_51TFy0dDcAbosXrTZToO6ls2eWiErnlUyE2QTtEsHrtBRQ6DHpy8sNPrXBts9QIlmslELGADbg0yg6cZHKRZUJ0TF0043DYi2Xy',
   workerUrl:              'https://eswapgifts.faceswapgifts.workers.dev',
   cloudinaryCloud:        'dcyp4e7sp',
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.17',
+  version:                'v6.18',
   versionDate:            'April 2026',
 
   gelatoProducts: {
