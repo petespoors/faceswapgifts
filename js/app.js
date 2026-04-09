@@ -24,7 +24,60 @@ const CONFIG = {
     phonecase: 'YOUR_PHONECASE_UID',
     poster:    'YOUR_POSTER_UID',
   },
-};;
+};
+
+// ══════════════════════════════════════════
+// FETCH LIVE SHIPPING SETTINGS
+// ══════════════════════════════════════════
+async function loadShippingSettings() {
+  try {
+    const res  = await fetch(CONFIG.workerUrl + '/get-shipping');
+    const data = await res.json();
+    if (data.shippingPrice !== undefined)
+      CONFIG.deliveryPrice = data.shippingPrice;
+    if (data.freeShippingThreshold !== undefined)
+      CONFIG.freeDeliveryThreshold = data.freeShippingThreshold;
+  } catch(e) {
+    console.warn('Could not load shipping settings — using defaults');
+  }
+}
+
+// ══════════════════════════════════════════
+// GIFT CARD VALIDATION
+// ══════════════════════════════════════════
+async function applyGiftCard() {
+  const code  = document.getElementById('giftCardInput') ?
+                document.getElementById('giftCardInput').value.trim().toUpperCase() : '';
+  const msgEl = document.getElementById('giftCardMsg');
+  if (!code) { if (msgEl) { msgEl.textContent = 'Please enter a code'; msgEl.style.color = 'red'; } return; }
+
+  try {
+    const res  = await fetch(CONFIG.workerUrl + '/validate-gift-card', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+
+    if (!data.valid) {
+      if (msgEl) { msgEl.textContent = '❌ ' + data.error; msgEl.style.color = 'red'; }
+      state.giftCard = null;
+      return;
+    }
+
+    state.giftCard = { code: data.code, remaining: data.remaining, expiry: data.expiry };
+    if (msgEl) {
+      msgEl.textContent = `✅ Gift card applied — £${data.remaining.toFixed(2)} available`;
+      msgEl.style.color = '#0E9F8A';
+    }
+    updateCheckoutSummary();
+
+  } catch(e) {
+    if (msgEl) { msgEl.textContent = '❌ Could not validate code'; msgEl.style.color = 'red'; }
+  }
+}
+
+;
 
 // ── STATE ──
 let state = {
@@ -50,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // LOAD & DISPLAY CHARACTER TYPES (Step 1A)
 // ══════════════════════════════════════════
 async function loadCharactersFromCloudinary() {
+  loadShippingSettings(); // fetch live shipping prices
   try {
     const res = await fetch('characters.json?v=' + Date.now());
     if (!res.ok) throw new Error('characters.json not found');
@@ -611,8 +665,11 @@ async function generateProductMockup(productType, productName) {
 
 function updateCheckoutSummary() {
   if (!state.selectedChar || !state.selectedProduct) return;
-  const delivery = state.selectedProductPrice >= CONFIG.freeDeliveryThreshold ? 0 : CONFIG.deliveryPrice;
-  const total    = (state.selectedProductPrice + delivery).toFixed(2);
+  const delivery  = state.selectedProductPrice >= CONFIG.freeDeliveryThreshold ? 0 : CONFIG.deliveryPrice;
+  const subtotal  = state.selectedProductPrice + delivery;
+  const gcAmount  = state.giftCard ? Math.min(state.giftCard.remaining, subtotal) : 0;
+  const total     = Math.max(0, subtotal - gcAmount).toFixed(2);
+  state.orderTotal = parseFloat(total);
 
   document.getElementById('summaryChar').textContent    = `${state.selectedChar.typeLabel} — ${capitalise(state.selectedChar.gender)}`;
   document.getElementById('summaryProduct').textContent = state.selectedProduct.name;
@@ -658,10 +715,34 @@ async function initiatePayment() {
     const total = (state.selectedProductPrice || 0) + CONFIG.deliveryPrice;
     const orderRef = generateOrderRef();
 
+    // Redeem gift card first if applied
+    let gcAmountUsed = 0;
+    if (state.giftCard) {
+      try {
+        const gcRes = await fetch(CONFIG.workerUrl + '/redeem-gift-card', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code:        state.giftCard.code,
+            orderRef,
+            amountToUse: Math.min(state.giftCard.remaining, total),
+          }),
+        });
+        const gcData = await gcRes.json();
+        if (gcData.success) {
+          gcAmountUsed = gcData.amountUsed;
+          debugLog('Gift card redeemed: £' + gcAmountUsed.toFixed(2));
+        }
+      } catch(gcErr) {
+        debugLog('Gift card redemption error: ' + gcErr.message);
+      }
+    }
+
+    const amountToCharge = Math.max(0, total - gcAmountUsed);
     const stripeRes = await fetch(CONFIG.workerUrl + '/stripe-payment', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: total, currency: 'gbp', orderRef }),
+      body: JSON.stringify({ amount: amountToCharge, currency: 'gbp', orderRef }),
     });
     const stripeData = await stripeRes.json();
     debugLog('Stripe: ' + JSON.stringify(stripeData).substring(0, 150));

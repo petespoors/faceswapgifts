@@ -269,6 +269,8 @@
       <div class="nav-tab" onclick="showTab('library')">Image Library</div>
       <div class="nav-tab" onclick="showTab('categories')">Categories</div>
       <div class="nav-tab" onclick="showTab('orders')">Orders</div>
+      <div class="nav-tab" onclick="showTab('giftcards')">🎁 Gift Cards</div>
+      <div class="nav-tab" onclick="showTab('settings')">⚙️ Settings</div>
       <button class="btn-logout" onclick="adminLogout()">Sign out</button>
     </div>
   </nav>
@@ -281,7 +283,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.15</strong><br>
+          Version: <strong id="versionNum">v6.18</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -437,6 +439,67 @@
       </div>
     </div>
 
+    <!-- GIFT CARDS TAB -->
+    <div class="tab-panel" id="tab-giftcards">
+      <div class="card">
+        <div class="card-title">🎁 Gift Cards</div>
+        <div class="card-sub">Create and manage gift cards for testers and promotions.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+          <div style="background:var(--light);border-radius:12px;padding:20px;">
+            <h4 style="font-size:15px;margin-bottom:14px;color:var(--dark);">Create New Gift Card</h4>
+            <div class="form-group">
+              <label>Amount (£)</label>
+              <input type="number" id="gcAmount" placeholder="25.00" step="0.01" min="1" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Expiry Date</label>
+              <input type="date" id="gcExpiry" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Note (optional)</label>
+              <input type="text" id="gcNote" placeholder="e.g. Tester - John Smith" style="width:100%;">
+            </div>
+            <button onclick="createGiftCard()" style="width:100%;background:var(--orange);color:white;border:none;border-radius:8px;padding:12px;font-size:15px;cursor:pointer;font-weight:700;">🎁 Generate Gift Card</button>
+            <div id="gcResult" style="display:none;margin-top:16px;padding:16px;background:white;border:2px solid var(--teal);border-radius:8px;text-align:center;">
+              <div style="font-size:11px;color:var(--mid);margin-bottom:4px;">GIFT CARD CODE</div>
+              <div id="gcCode" style="font-family:monospace;font-size:24px;font-weight:bold;color:var(--dark);letter-spacing:3px;"></div>
+              <div id="gcDetails" style="font-size:12px;color:var(--mid);margin-top:6px;"></div>
+              <button onclick="copyGiftCard()" style="margin-top:10px;background:var(--teal);color:white;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;">📋 Copy Code</button>
+            </div>
+          </div>
+          <div style="background:var(--light);border-radius:12px;padding:20px;">
+            <h4 style="font-size:15px;margin-bottom:14px;color:var(--dark);">Summary</h4>
+            <div id="gcStats" style="color:var(--mid);font-size:13px;">Loading...</div>
+          </div>
+        </div>
+
+        <h4 style="font-size:15px;margin-bottom:12px;color:var(--dark);">All Gift Cards</h4>
+        <div id="gcList" style="font-size:13px;color:var(--mid);">Loading...</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-panel" id="tab-settings">
+      <div class="card">
+        <div class="card-title">⚙️ Settings</div>
+        <div class="card-sub">Manage shipping prices and site configuration.</div>
+        <div style="max-width:440px;">
+          <h4 style="font-size:15px;margin-bottom:14px;color:var(--dark);">Shipping Prices</h4>
+          <div class="form-group">
+            <label>Standard Shipping Price (£)</label>
+            <input type="number" id="settingShipping" step="0.01" min="0" placeholder="3.99" style="width:100%;">
+          </div>
+          <div class="form-group">
+            <label>Free Shipping Threshold (£)</label>
+            <input type="number" id="settingFreeThreshold" step="0.01" min="0" placeholder="30.00" style="width:100%;">
+          </div>
+          <button onclick="saveShippingSettings()" style="background:var(--orange);color:white;border:none;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer;font-weight:700;">💾 Save Settings</button>
+          <div id="settingsMsg" style="display:none;margin-top:12px;padding:10px;border-radius:8px;font-size:14px;"></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -499,7 +562,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.15';
+  if (badge) badge.textContent = 'v6.18';
 }
 
 // ════════════════════════════════════════
@@ -510,9 +573,10 @@ function showTab(name) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`tab-${name}`).classList.add('active');
   event.target.classList.add('active');
-  // Refresh categories when tab opens
   if (name === 'categories') renderCategories();
   if (name === 'library') loadLibrary();
+  if (name === 'giftcards') loadGiftCards();
+  if (name === 'settings') loadShippingSettings();
 }
 
 // ════════════════════════════════════════
@@ -954,6 +1018,164 @@ function showToast(msg, type='info') {
   t.textContent = msg;
   t.style.display = 'block';
   setTimeout(() => t.style.display = 'none', 3500);
+}
+
+
+// ════════════════════════════════════════
+// WORKER CONFIG
+// ════════════════════════════════════════
+const WORKER_URL  = 'https://eswapgifts.faceswapgifts.workers.dev';
+const ADMIN_KEY   = '1MissionImpossible2!';
+
+// ════════════════════════════════════════
+// GIFT CARDS
+// ════════════════════════════════════════
+async function createGiftCard() {
+  const amount = parseFloat(document.getElementById('gcAmount').value);
+  const expiry = document.getElementById('gcExpiry').value;
+  const note   = document.getElementById('gcNote').value;
+
+  if (!amount || amount < 1) { showToast('Please enter a valid amount', 'error'); return; }
+  if (!expiry) { showToast('Please select an expiry date', 'error'); return; }
+
+  try {
+    const res = await fetch(WORKER_URL + '/create-gift-card', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ amount, expiry, note }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Failed');
+
+    document.getElementById('gcCode').textContent = data.code;
+    document.getElementById('gcDetails').textContent =
+      `£${data.amount.toFixed(2)} · Expires ${new Date(data.expiry).toLocaleDateString('en-GB')}${note ? ' · ' + note : ''}`;
+    document.getElementById('gcResult').style.display = 'block';
+    showToast('Gift card created!', 'success');
+    loadGiftCards();
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+function copyGiftCard() {
+  const code = document.getElementById('gcCode').textContent;
+  navigator.clipboard.writeText(code);
+  showToast('Code copied to clipboard!', 'success');
+}
+
+async function loadGiftCards() {
+  const list  = document.getElementById('gcList');
+  const stats = document.getElementById('gcStats');
+  try {
+    const res  = await fetch(WORKER_URL + '/list-gift-cards', {
+      headers: { 'X-Admin-Key': ADMIN_KEY }
+    });
+    const data = await res.json();
+    const cards = data.cards || [];
+
+    const total    = cards.length;
+    const active   = cards.filter(c => c.active && new Date(c.expiry) > new Date()).length;
+    const expired  = cards.filter(c => new Date(c.expiry) < new Date()).length;
+    const totalVal = cards.reduce((s, c) => s + c.amount, 0);
+    const remVal   = cards.reduce((s, c) => s + c.remaining, 0);
+
+    stats.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;color:var(--teal)">${active}</div>
+          <div style="font-size:11px;color:var(--mid);">ACTIVE</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:24px;font-weight:700;color:var(--orange)">${expired}</div>
+          <div style="font-size:11px;color:var(--mid);">EXPIRED</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:var(--dark)">£${totalVal.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--mid);">TOTAL ISSUED</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:var(--purple)">£${remVal.toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--mid);">REMAINING</div>
+        </div>
+      </div>`;
+
+    if (cards.length === 0) {
+      list.innerHTML = '<p style="color:var(--mid);">No gift cards created yet.</p>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:var(--light);">
+            <th style="padding:8px 12px;text-align:left;">Code</th>
+            <th style="padding:8px 12px;text-align:left;">Amount</th>
+            <th style="padding:8px 12px;text-align:left;">Remaining</th>
+            <th style="padding:8px 12px;text-align:left;">Expiry</th>
+            <th style="padding:8px 12px;text-align:left;">Status</th>
+            <th style="padding:8px 12px;text-align:left;">Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cards.map(c => {
+            const expired = new Date(c.expiry) < new Date();
+            const status  = !c.active || c.remaining === 0 ? '🔴 Used' :
+                            expired ? '⚠️ Expired' : '🟢 Active';
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px 12px;font-family:monospace;font-weight:700;">${c.code}</td>
+              <td style="padding:8px 12px;">£${c.amount.toFixed(2)}</td>
+              <td style="padding:8px 12px;">£${c.remaining.toFixed(2)}</td>
+              <td style="padding:8px 12px;">${new Date(c.expiry).toLocaleDateString('en-GB')}</td>
+              <td style="padding:8px 12px;">${status}</td>
+              <td style="padding:8px 12px;color:var(--mid);">${c.note || '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    list.innerHTML = '<p style="color:var(--red);">Could not load gift cards: ' + e.message + '</p>';
+  }
+}
+
+// ════════════════════════════════════════
+// SHIPPING SETTINGS
+// ════════════════════════════════════════
+async function loadShippingSettings() {
+  try {
+    const res  = await fetch(WORKER_URL + '/get-shipping');
+    const data = await res.json();
+    document.getElementById('settingShipping').value       = data.shippingPrice;
+    document.getElementById('settingFreeThreshold').value  = data.freeShippingThreshold;
+  } catch(e) {
+    console.error('Could not load shipping settings', e);
+  }
+}
+
+async function saveShippingSettings() {
+  const shipping   = parseFloat(document.getElementById('settingShipping').value);
+  const threshold  = parseFloat(document.getElementById('settingFreeThreshold').value);
+  const msg        = document.getElementById('settingsMsg');
+
+  try {
+    const res = await fetch(WORKER_URL + '/update-shipping', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ shippingPrice: shipping, freeShippingThreshold: threshold }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    msg.style.display     = 'block';
+    msg.style.background  = 'var(--teal-light)';
+    msg.style.color       = 'var(--teal)';
+    msg.textContent       = '✅ Shipping settings saved!';
+    showToast('Settings saved!', 'success');
+  } catch(e) {
+    msg.style.display    = 'block';
+    msg.style.background = 'var(--red-light)';
+    msg.style.color      = 'var(--red)';
+    msg.textContent      = '❌ Error: ' + e.message;
+  }
 }
 </script>
 </body>
