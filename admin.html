@@ -556,6 +556,15 @@ const ADMIN = {
   password: 'FSG2025admin!',
 };
 
+const WORKER_URL = 'https://eswapgifts.faceswapgifts.workers.dev';
+const ADMIN_KEY  = '1MissionImpossible2!';
+
+const EMAILJS = {
+  publicKey:  '9r9E4QSWDQ_5Y_0v-',
+  serviceId:  'service_k1hxvoj',
+  templateId: 'template_fc6gxpz',
+};
+
 // ════════════════════════════════════════
 // LOGIN
 // ════════════════════════════════════════
@@ -1057,18 +1066,6 @@ function showToast(msg, type='info') {
 // ════════════════════════════════════════
 // WORKER CONFIG
 // ════════════════════════════════════════
-const WORKER_URL  = 'https://eswapgifts.faceswapgifts.workers.dev';
-
-// ════════════════════════════════════════
-// EMAILJS CONFIG
-// ════════════════════════════════════════
-const EMAILJS = {
-  publicKey:  '9r9E4QSWDQ_5Y_0v-',
-  serviceId:  'service_k1hxvoj',
-  templateId: 'template_fc6gxpz',
-};
-emailjs.init({ publicKey: EMAILJS.publicKey });
-const ADMIN_KEY   = '1MissionImpossible2!';
 
 // ════════════════════════════════════════
 // GIFT CARDS
@@ -1517,6 +1514,7 @@ async function syncCatalog() {
   btn.textContent = '🔄 Sync Gelato Catalog';
   btn.disabled    = false;
 }
+if (typeof emailjs !== 'undefined') emailjs.init({ publicKey: EMAILJS.publicKey });
 </script>
 </body>
 </html>
