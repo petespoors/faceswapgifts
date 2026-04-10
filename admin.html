@@ -284,7 +284,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.21</strong><br>
+          Version: <strong id="versionNum">v6.22</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -567,7 +567,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.21';
+  if (badge) badge.textContent = 'v6.22';
 }
 
 // ════════════════════════════════════════
@@ -1092,34 +1092,34 @@ async function loadGiftCards() {
   const list  = document.getElementById('gcList');
   const stats = document.getElementById('gcStats');
   try {
-    const res  = await fetch(WORKER_URL + '/list-gift-cards', {
+    const res   = await fetch(WORKER_URL + '/list-gift-cards', {
       headers: { 'X-Admin-Key': ADMIN_KEY }
     });
-    const data = await res.json();
+    const data  = await res.json();
     const cards = data.cards || [];
 
-    const total    = cards.length;
-    const active   = cards.filter(c => c.active && new Date(c.expiry) > new Date()).length;
-    const expired  = cards.filter(c => new Date(c.expiry) < new Date()).length;
+    const active  = cards.filter(c => c.active && !c.sentTo && new Date(c.expiry) > new Date());
+    const sent    = cards.filter(c => c.sentTo);
+    const expired = cards.filter(c => !c.sentTo && new Date(c.expiry) < new Date());
     const totalVal = cards.reduce((s, c) => s + c.amount, 0);
     const remVal   = cards.reduce((s, c) => s + c.remaining, 0);
 
     stats.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--teal)">${active}</div>
-          <div style="font-size:11px;color:var(--mid);">ACTIVE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:700;color:var(--teal)">${active.length}</div>
+          <div style="font-size:11px;color:var(--mid);">UNSENT</div>
         </div>
-        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--orange)">${expired}</div>
-          <div style="font-size:11px;color:var(--mid);">EXPIRED</div>
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:22px;font-weight:700;color:var(--orange)">${sent.length}</div>
+          <div style="font-size:11px;color:var(--mid);">SENT</div>
         </div>
-        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:var(--dark)">£${totalVal.toFixed(2)}</div>
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:16px;font-weight:700;color:var(--dark)">£${totalVal.toFixed(2)}</div>
           <div style="font-size:11px;color:var(--mid);">TOTAL ISSUED</div>
         </div>
-        <div style="background:white;border-radius:8px;padding:12px;text-align:center;">
-          <div style="font-size:18px;font-weight:700;color:var(--purple)">£${remVal.toFixed(2)}</div>
+        <div style="background:white;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:16px;font-weight:700;color:var(--purple)">£${remVal.toFixed(2)}</div>
           <div style="font-size:11px;color:var(--mid);">REMAINING</div>
         </div>
       </div>`;
@@ -1129,44 +1129,57 @@ async function loadGiftCards() {
       return;
     }
 
-    list.innerHTML = `
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+    function cardTable(rows, showSend) {
+      if (rows.length === 0) return '<p style="color:var(--mid);font-size:13px;margin:4px 0 16px;">None.</p>';
+      return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
         <thead>
           <tr style="background:var(--light);">
-            <th style="padding:8px 12px;text-align:left;">Code</th>
-            <th style="padding:8px 12px;text-align:left;">Amount</th>
-            <th style="padding:8px 12px;text-align:left;">Remaining</th>
-            <th style="padding:8px 12px;text-align:left;">Expiry</th>
-            <th style="padding:8px 12px;text-align:left;">Status</th>
-            <th style="padding:8px 12px;text-align:left;">Note</th>
-            <th style="padding:8px 12px;text-align:left;">Email</th>
+            <th style="padding:7px 10px;text-align:left;">Amount</th>
+            <th style="padding:7px 10px;text-align:left;">Remaining</th>
+            <th style="padding:7px 10px;text-align:left;">Expiry</th>
+            <th style="padding:7px 10px;text-align:left;">Note</th>
+            <th style="padding:7px 10px;text-align:left;">${showSend ? 'Action' : 'Sent To'}</th>
+            <th style="padding:7px 10px;text-align:left;">Delete</th>
           </tr>
         </thead>
         <tbody>
-          ${cards.map(c => {
-            const expired = new Date(c.expiry) < new Date();
-            const status  = !c.active || c.remaining === 0 ? '🔴 Used' :
-                            expired ? '⚠️ Expired' : '🟢 Active';
-            return `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 12px;font-family:monospace;font-weight:700;">••••-••••-••••</td>
-              <td style="padding:8px 12px;">£${c.amount.toFixed(2)}</td>
-              <td style="padding:8px 12px;">£${c.remaining.toFixed(2)}</td>
-              <td style="padding:8px 12px;">${new Date(c.expiry).toLocaleDateString('en-GB')}</td>
-              <td style="padding:8px 12px;">${status}</td>
-              <td style="padding:8px 12px;color:var(--mid);">${c.note || '—'}</td>
-              <td style="padding:8px 12px;">
-                ${c.sentTo ?
-                  `<span style="color:var(--teal);font-size:12px;">✅ Sent to<br><small style="color:var(--mid);">${c.sentTo}</small></span>` :
-                  c.active && new Date(c.expiry) > new Date() ?
-                  `<button onclick="showSendGiftCardEmail('${c.code}','${c.amount}','${c.expiry}','${c.note||''}')"
-                    style="background:var(--orange);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
-                    📧 Send
-                  </button>` : '—'}
+          ${rows.map(c => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:7px 10px;">£${c.amount.toFixed(2)}</td>
+              <td style="padding:7px 10px;">£${c.remaining.toFixed(2)}</td>
+              <td style="padding:7px 10px;">${new Date(c.expiry).toLocaleDateString('en-GB')}</td>
+              <td style="padding:7px 10px;color:var(--mid);">${c.note || '—'}</td>
+              <td style="padding:7px 10px;">
+                ${showSend
+                  ? `<button onclick="showSendGiftCardEmail('${c.code}','${c.amount}','${c.expiry}','${c.note||''}')"
+                      style="background:var(--orange);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
+                      📧 Send
+                    </button>`
+                  : `<span style="color:var(--teal);font-size:12px;">✅ ${c.sentTo}<br>
+                      <small style="color:var(--mid);">${c.sentAt ? new Date(c.sentAt).toLocaleDateString('en-GB') : ''}</small></span>`
+                }
               </td>
-            </tr>`;
-          }).join('')}
+              <td style="padding:7px 10px;">
+                <button onclick="deleteGiftCard('${c.code}')"
+                  style="background:none;color:var(--red);border:1px solid var(--red);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">
+                  🗑
+                </button>
+              </td>
+            </tr>`).join('')}
         </tbody>
       </table>`;
+    }
+
+    list.innerHTML =
+      `<h5 style="font-size:14px;font-weight:700;color:var(--dark);margin-bottom:6px;">🟢 Unsent Cards (${active.length})</h5>` +
+      cardTable(active, true) +
+      `<h5 style="font-size:14px;font-weight:700;color:var(--teal);margin-bottom:6px;">✅ Sent Cards (${sent.length})</h5>` +
+      cardTable(sent, false) +
+      (expired.length > 0
+        ? `<h5 style="font-size:14px;font-weight:700;color:var(--mid);margin-bottom:6px;">⚠️ Expired Unsent (${expired.length})</h5>` +
+          cardTable(expired, false)
+        : '');
+
   } catch(e) {
     list.innerHTML = '<p style="color:var(--red);">Could not load gift cards: ' + e.message + '</p>';
   }
@@ -1175,6 +1188,22 @@ async function loadGiftCards() {
 // ════════════════════════════════════════
 // SHIPPING SETTINGS
 // ════════════════════════════════════════
+
+async function deleteGiftCard(code) {
+  if (!confirm('Delete this gift card? This cannot be undone.')) return;
+  try {
+    const res = await fetch(WORKER_URL + '/delete-gift-card', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (data.success) { showToast('Gift card deleted', 'success'); loadGiftCards(); }
+    else showToast('Delete failed: ' + (data.error||'unknown'), 'error');
+  } catch(e) {
+    showToast('Delete failed: ' + e.message, 'error');
+  }
+}
 async function loadShippingSettings() {
   try {
     const res  = await fetch(WORKER_URL + '/get-shipping');
