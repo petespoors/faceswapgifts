@@ -11,9 +11,10 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.18',
+  version:                'v6.23',
   versionDate:            'April 2026',
 
+  workerAdminKey: '1MissionImpossible2!',
   gelatoProducts: {
     mug:       'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
     tote:      'bag_product_bsc_tote-bag_bqa_prm_bsi_std-t_bco_natural_bpr_4-0',
@@ -357,6 +358,7 @@ function goToStep(n) {
   });
 
   document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+  if (n === 4) initStripe(); // initialise Stripe Elements when checkout shown
 }
 
 // ══════════════════════════════════════════
@@ -515,6 +517,194 @@ async function compressImageBase64(dataUrl, quality, maxSize) {
     };
     img.src = dataUrl;
   });
+}
+
+// ══════════════════════════════════════════
+// STRIPE ELEMENTS INITIALISATION
+// ══════════════════════════════════════════
+let stripe       = null;
+let cardElement  = null;
+let gcCardElement = null;
+
+function initStripe() {
+  if (stripe) return; // already initialised
+  stripe = Stripe(CONFIG.stripePublicKey);
+  const elements = stripe.elements();
+
+  // Product checkout card element
+  const cardEl = document.getElementById('stripe-card-element');
+  if (cardEl) {
+    cardElement = elements.create('card', {
+      style: {
+        base: {
+          fontSize: '16px',
+          fontFamily: "'Nunito', sans-serif",
+          color: '#1C1C2E',
+          '::placeholder': { color: '#aab7c4' },
+        },
+        invalid: { color: '#E24B4A' },
+      }
+    });
+    cardElement.mount('#stripe-card-element');
+    cardElement.on('change', e => {
+      document.getElementById('stripe-card-errors').textContent = e.error ? e.error.message : '';
+    });
+  }
+
+  // Gift card purchase card element
+  const gcCardEl = document.getElementById('gc-stripe-card-element');
+  if (gcCardEl) {
+    gcCardElement = elements.create('card', {
+      style: {
+        base: {
+          fontSize: '16px',
+          fontFamily: "'Nunito', sans-serif",
+          color: '#1C1C2E',
+          '::placeholder': { color: '#aab7c4' },
+        },
+        invalid: { color: '#E24B4A' },
+      }
+    });
+    gcCardElement.mount('#gc-stripe-card-element');
+    gcCardElement.on('change', e => {
+      document.getElementById('gc-stripe-card-errors').textContent = e.error ? e.error.message : '';
+    });
+  }
+}
+
+// Initialise Stripe when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initStripe, 500);
+});
+
+// ══════════════════════════════════════════
+// GIFT CARD PURCHASE (customer-facing)
+// ══════════════════════════════════════════
+let gcSelectedAmount = 25;
+
+function selectGcAmount(amount, btn, isCustom = false) {
+  gcSelectedAmount = parseFloat(amount) || 0;
+
+  // Update preset button styles
+  if (!isCustom) {
+    document.querySelectorAll('.gc-preset-btn').forEach(b => b.classList.remove('selected'));
+    if (btn) btn.classList.add('selected');
+    document.getElementById('gcCustomAmount').value = '';
+  } else {
+    document.querySelectorAll('.gc-preset-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  // Update total display
+  const totalEl = document.getElementById('gcTotalDisplay');
+  if (totalEl) totalEl.textContent = gcSelectedAmount > 0 ? `£${gcSelectedAmount.toFixed(2)}` : '£—';
+}
+
+async function purchaseGiftCard() {
+  const recipientName  = document.getElementById('gcRecipientName').value.trim();
+  const recipientEmail = document.getElementById('gcRecipientEmail').value.trim().replace(/[^a-zA-Z0-9@._+-]/g,'').toLowerCase();
+  const senderName     = document.getElementById('gcSenderName').value.trim();
+  const message        = document.getElementById('gcPersonalMessage') ? document.getElementById('gcPersonalMessage').value.trim() : '';
+  const btn            = document.getElementById('gcPayBtn');
+
+  // Validate
+  if (!recipientName)  { showToast('Please enter recipient name', 'error'); return; }
+  if (!recipientEmail || !recipientEmail.includes('@')) { showToast('Please enter a valid recipient email', 'error'); return; }
+  if (!senderName)     { showToast('Please enter your name', 'error'); return; }
+  if (!gcSelectedAmount || gcSelectedAmount < 5) { showToast('Please select or enter an amount (minimum £5)', 'error'); return; }
+  if (gcSelectedAmount > 200) { showToast('Maximum gift card amount is £200', 'error'); return; }
+  if (!gcCardElement)  { showToast('Payment not ready — please refresh and try again', 'error'); return; }
+
+  btn.textContent = 'Processing...';
+  btn.disabled    = true;
+
+  try {
+    // Step 1 — Create payment intent via Worker
+    debugLog('Creating gift card payment intent...');
+    const orderRef = generateOrderRef();
+
+    const intentRes = await fetch(CONFIG.workerUrl + '/stripe-payment', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: gcSelectedAmount, currency: 'gbp', orderRef }),
+    });
+    const intentData = await intentRes.json();
+    if (!intentData.success) throw new Error('Payment setup failed: ' + (intentData.error || 'unknown'));
+
+    debugLog('Payment intent created: ' + intentData.paymentIntentId);
+
+    // Step 2 — Confirm payment with card details
+    btn.textContent = 'Confirming payment...';
+    const { paymentIntent, error } = await stripe.confirmCardPayment(intentData.clientSecret, {
+      payment_method: { card: gcCardElement }
+    });
+
+    if (error) throw new Error(error.message);
+    if (paymentIntent.status !== 'succeeded') throw new Error('Payment not completed');
+
+    debugLog('Payment confirmed!');
+
+    // Step 3 — Create gift card in Worker
+    btn.textContent = 'Creating gift card...';
+
+    // Expiry = 1 year from today
+    const expiry = new Date();
+    expiry.setFullYear(expiry.getFullYear() + 1);
+    const expiryStr = expiry.toISOString().split('T')[0];
+
+    const gcRes = await fetch(CONFIG.workerUrl + '/create-gift-card', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': CONFIG.workerAdminKey },
+      body: JSON.stringify({
+        amount:    gcSelectedAmount,
+        expiry:    expiryStr,
+        note:      `Purchased by ${senderName} for ${recipientName}`,
+        source:    'customer',
+        purchasedBy: senderName,
+        recipientName,
+        recipientEmail,
+        paymentIntentId: paymentIntent.id,
+      }),
+    });
+    const gcData = await gcRes.json();
+    if (!gcData.success) throw new Error('Gift card creation failed');
+
+    debugLog('Gift card created: ' + gcData.code);
+
+    // Step 4 — Send email via EmailJS
+    btn.textContent = 'Sending email...';
+    if (typeof emailjs !== 'undefined') {
+      await emailjs.send('service_k1hxvoj', 'template_fc6gxpz', {
+        to_name:        recipientName,
+        to_email:       recipientEmail,
+        gift_card_code: gcData.code,
+        amount:         gcSelectedAmount.toFixed(2),
+        expiry:         new Date(expiryStr).toLocaleDateString('en-GB'),
+        note:           message ? `Message from ${senderName}: ${message}` : `From ${senderName}`,
+        site_url:       'https://faceswapgifts.co.uk',
+      });
+      debugLog('Gift card email sent!');
+    }
+
+    // Step 5 — Show success
+    btn.textContent  = '🎁 Buy Gift Card';
+    btn.disabled     = false;
+    showToast(`Gift card sent to ${recipientEmail}! 🎉`, 'success');
+
+    // Reset form
+    document.getElementById('gcRecipientName').value  = '';
+    document.getElementById('gcRecipientEmail').value = '';
+    document.getElementById('gcSenderName').value     = '';
+    if (document.getElementById('gcPersonalMessage'))
+      document.getElementById('gcPersonalMessage').value = '';
+    gcCardElement.clear();
+    selectGcAmount(25, document.querySelectorAll('.gc-preset-btn')[2]);
+
+  } catch(err) {
+    debugLog('Gift card purchase error: ' + err.message);
+    showToast('Error: ' + err.message, 'error');
+    btn.textContent = '🎁 Buy Gift Card';
+    btn.disabled    = false;
+  }
 }
 
 // ── DEBUG LOGGER ──
@@ -750,6 +940,18 @@ async function initiatePayment() {
     state.paymentIntentId = stripeData.paymentIntentId;
     state.clientSecret    = stripeData.clientSecret;
 
+    // Step 2b — Confirm card payment with Stripe Elements
+    if (stripeData.clientSecret && cardElement && stripe) {
+      btn.textContent = 'Confirming payment...';
+      debugLog('Confirming card payment...');
+      const { paymentIntent, error } = await stripe.confirmCardPayment(stripeData.clientSecret, {
+        payment_method: { card: cardElement }
+      });
+      if (error) throw new Error(error.message);
+      if (paymentIntent.status !== 'succeeded') throw new Error('Payment not completed — please try again');
+      debugLog('Payment confirmed! ID: ' + paymentIntent.id);
+    }
+
     // Step 3 — Place Gelato print order via Worker
     const customerDetails = {
       name:     name,
@@ -968,6 +1170,7 @@ window.addEventListener('scroll', () => {
 });
 function scrollToBuilder() {
   document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+  if (n === 4) initStripe(); // initialise Stripe Elements when checkout shown
 }
 
 // ══════════════════════════════════════════

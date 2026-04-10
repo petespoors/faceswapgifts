@@ -284,7 +284,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.22</strong><br>
+          Version: <strong id="versionNum">v6.23</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -567,7 +567,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.22';
+  if (badge) badge.textContent = 'v6.23';
 }
 
 // ════════════════════════════════════════
@@ -1098,9 +1098,13 @@ async function loadGiftCards() {
     const data  = await res.json();
     const cards = data.cards || [];
 
-    const active  = cards.filter(c => c.active && !c.sentTo && new Date(c.expiry) > new Date());
-    const sent    = cards.filter(c => c.sentTo);
-    const expired = cards.filter(c => !c.sentTo && new Date(c.expiry) < new Date());
+    // Split by source
+    const adminCards    = cards.filter(c => !c.source || c.source === 'admin');
+    const customerCards = cards.filter(c => c.source === 'customer');
+
+    const active  = adminCards.filter(c => c.active && !c.sentTo && new Date(c.expiry) > new Date());
+    const sent    = adminCards.filter(c => c.sentTo);
+    const expired = adminCards.filter(c => !c.sentTo && new Date(c.expiry) < new Date());
     const totalVal = cards.reduce((s, c) => s + c.amount, 0);
     const remVal   = cards.reduce((s, c) => s + c.remaining, 0);
 
@@ -1170,15 +1174,58 @@ async function loadGiftCards() {
       </table>`;
     }
 
+    // Customer card table (different columns)
+    function customerCardTable(rows) {
+      if (rows.length === 0) return '<p style="color:var(--mid);font-size:13px;margin:4px 0 16px;">None yet.</p>';
+      return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px;">
+        <thead>
+          <tr style="background:var(--light);">
+            <th style="padding:7px 10px;text-align:left;">Purchased By</th>
+            <th style="padding:7px 10px;text-align:left;">Sent To</th>
+            <th style="padding:7px 10px;text-align:left;">Amount</th>
+            <th style="padding:7px 10px;text-align:left;">Remaining</th>
+            <th style="padding:7px 10px;text-align:left;">Expiry</th>
+            <th style="padding:7px 10px;text-align:left;">Status</th>
+            <th style="padding:7px 10px;text-align:left;">Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(c => {
+            const isExpired = new Date(c.expiry) < new Date();
+            const status = !c.active || c.remaining === 0 ? '🔴 Used' :
+                           isExpired ? '⚠️ Expired' : '🟢 Active';
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:7px 10px;">${c.purchasedBy || '—'}</td>
+              <td style="padding:7px 10px;color:var(--mid);">${c.recipientName || '—'}<br><small>${c.recipientEmail || ''}</small></td>
+              <td style="padding:7px 10px;">£${c.amount.toFixed(2)}</td>
+              <td style="padding:7px 10px;">£${c.remaining.toFixed(2)}</td>
+              <td style="padding:7px 10px;">${new Date(c.expiry).toLocaleDateString('en-GB')}</td>
+              <td style="padding:7px 10px;">${status}</td>
+              <td style="padding:7px 10px;">
+                <button onclick="deleteGiftCard('${c.code}')"
+                  style="background:none;color:var(--red);border:1px solid var(--red);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">🗑</button>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+    }
+
     list.innerHTML =
-      `<h5 style="font-size:14px;font-weight:700;color:var(--dark);margin-bottom:6px;">🟢 Unsent Cards (${active.length})</h5>` +
+      `<h5 style="font-size:15px;font-weight:700;color:var(--dark);margin:0 0 6px;">🎁 Admin-Created Cards</h5>` +
+      `<p style="font-size:12px;color:var(--mid);margin-bottom:10px;">Cards you created manually — for testers, promotions and goodwill.</p>` +
+      `<h6 style="font-size:13px;font-weight:700;color:var(--dark);margin-bottom:6px;">🟢 Unsent (${active.length})</h6>` +
       cardTable(active, true) +
-      `<h5 style="font-size:14px;font-weight:700;color:var(--teal);margin-bottom:6px;">✅ Sent Cards (${sent.length})</h5>` +
+      `<h6 style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:6px;">✅ Sent (${sent.length})</h6>` +
       cardTable(sent, false) +
       (expired.length > 0
-        ? `<h5 style="font-size:14px;font-weight:700;color:var(--mid);margin-bottom:6px;">⚠️ Expired Unsent (${expired.length})</h5>` +
+        ? `<h6 style="font-size:13px;font-weight:700;color:var(--mid);margin-bottom:6px;">⚠️ Expired Unsent (${expired.length})</h6>` +
           cardTable(expired, false)
-        : '');
+        : '') +
+      `<hr style="margin:20px 0;border:none;border-top:1px solid var(--border);">` +
+      `<h5 style="font-size:15px;font-weight:700;color:var(--purple);margin:0 0 6px;">🛒 Customer-Purchased Cards (${customerCards.length})</h5>` +
+      `<p style="font-size:12px;color:var(--mid);margin-bottom:10px;">Cards bought by customers via the website. Revenue already collected via Stripe.</p>` +
+      customerCardTable(customerCards);
 
   } catch(e) {
     list.innerHTML = '<p style="color:var(--red);">Could not load gift cards: ' + e.message + '</p>';

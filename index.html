@@ -8,6 +8,25 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Stripe.js -->
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+  /* Gift card preset buttons */
+  .gc-preset-btn {
+    padding: 12px 8px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    font-size: 18px;
+    font-family: 'Fredoka One', sans-serif;
+    color: var(--dark);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  .gc-preset-btn:hover { border-color: var(--orange); color: var(--orange); }
+  .gc-preset-btn.selected { border-color: var(--orange); background: var(--orange); color: white; }
+  </style>
 </head>
 <body>
 
@@ -384,6 +403,13 @@
             <div id="giftCardMsg" style="font-size:12px;margin-top:6px;min-height:18px;"></div>
           </div>
 
+          <!-- Stripe Card Element -->
+          <div id="stripeCardSection" style="margin-bottom:16px;">
+            <label style="font-size:13px;font-weight:700;color:var(--dark);display:block;margin-bottom:8px;">Card details</label>
+            <div id="stripe-card-element" style="padding:12px;border:1px solid var(--border);border-radius:8px;background:white;"></div>
+            <div id="stripe-card-errors" style="color:var(--red);font-size:12px;margin-top:6px;min-height:16px;"></div>
+          </div>
+
           <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
             🔒 Pay Securely with Stripe
           </button>
@@ -399,6 +425,88 @@
       </div>
     </div>
 
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     GIFT CARDS
+═══════════════════════════════════════════ -->
+<section class="section" id="gift-cards-section" style="background:var(--light);">
+  <div class="container">
+    <div class="section-header">
+      <h2>🎁 Give the Gift of FaceSwap</h2>
+      <p>Buy a gift card for someone special — they choose their own character and gift!</p>
+    </div>
+
+    <div style="max-width:520px;margin:0 auto;background:white;border-radius:20px;padding:32px;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+      <!-- Amount presets -->
+      <h4 style="font-size:16px;margin-bottom:12px;color:var(--dark);">Choose an amount</h4>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;" id="gcPresets">
+        <button class="gc-preset-btn" onclick="selectGcAmount(10, this)">£10</button>
+        <button class="gc-preset-btn" onclick="selectGcAmount(20, this)">£20</button>
+        <button class="gc-preset-btn selected" onclick="selectGcAmount(25, this)">£25</button>
+        <button class="gc-preset-btn" onclick="selectGcAmount(50, this)">£50</button>
+      </div>
+      <div class="form-group">
+        <label>Or enter your own amount (£5 — £200)</label>
+        <input type="number" id="gcCustomAmount" placeholder="e.g. 35"
+               min="5" max="200" step="1"
+               oninput="selectGcAmount(parseFloat(this.value)||0, null, true)"
+               style="width:100%;">
+      </div>
+
+      <!-- Recipient -->
+      <h4 style="font-size:16px;margin:20px 0 12px;color:var(--dark);">Recipient details</h4>
+      <div class="form-group">
+        <label>Recipient name *</label>
+        <input type="text" id="gcRecipientName" placeholder="Who is this for?" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Recipient email *</label>
+        <input type="text" id="gcRecipientEmail" placeholder="Their email address"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="form-group">
+        <label>Your name *</label>
+        <input type="text" id="gcSenderName" placeholder="So they know who it's from" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Personal message (optional)</label>
+        <textarea id="gcPersonalMessage" rows="3"
+          placeholder="Add a message to include in the email..."
+          style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:'Nunito',sans-serif;font-size:14px;resize:vertical;"></textarea>
+      </div>
+
+      <!-- Card payment -->
+      <h4 style="font-size:16px;margin:20px 0 12px;color:var(--dark);">Payment</h4>
+      <div id="gc-stripe-card-element" style="padding:12px;border:1px solid var(--border);border-radius:8px;background:white;margin-bottom:6px;"></div>
+      <div id="gc-stripe-card-errors" style="color:var(--red);font-size:12px;min-height:16px;margin-bottom:12px;"></div>
+
+      <!-- Terms -->
+      <div style="padding:12px;background:var(--light);border-radius:8px;border-left:3px solid var(--orange);margin-bottom:16px;">
+        <p style="font-size:12px;color:var(--mid);margin:0;line-height:1.6;">
+          <strong style="color:var(--dark);">Please note:</strong> Any unused gift card balance cannot be refunded.
+          Remaining balance can be used as part payment towards future FaceSwapGifts orders.
+          Gift cards are valid until the expiry date shown in the email.
+        </p>
+      </div>
+
+      <!-- Total and buy button -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--light);border-radius:10px;margin-bottom:14px;">
+        <span style="font-size:14px;color:var(--mid);">Total to pay:</span>
+        <strong id="gcTotalDisplay" style="font-size:24px;color:var(--orange);font-family:'Fredoka One',sans-serif;">£25.00</strong>
+      </div>
+
+      <button id="gcPayBtn" onclick="purchaseGiftCard()"
+        style="width:100%;background:var(--orange);color:white;border:none;border-radius:50px;padding:16px;font-size:18px;font-family:'Fredoka One',sans-serif;cursor:pointer;letter-spacing:0.5px;">
+        🎁 Buy Gift Card
+      </button>
+      <p style="font-size:12px;color:var(--mid);text-align:center;margin-top:8px;">
+        Secured by Stripe · Recipient receives their code by email immediately
+      </p>
+
+    </div>
   </div>
 </section>
 
