@@ -271,6 +271,7 @@
       <div class="nav-tab" onclick="showTab('categories')">Categories</div>
       <div class="nav-tab" onclick="showTab('orders')">Orders</div>
       <div class="nav-tab" onclick="showTab('giftcards')">🎁 Gift Cards</div>
+      <div class="nav-tab" onclick="showTab('products')">🛍️ Products</div>
       <div class="nav-tab" onclick="showTab('settings')">⚙️ Settings</div>
       <button class="btn-logout" onclick="adminLogout()">Sign out</button>
     </div>
@@ -484,6 +485,47 @@
       </div>
     </div>
 
+    <!-- PRODUCTS TAB -->
+    <div class="tab-panel" id="tab-products">
+      <div class="card">
+        <div class="card-title">🛍️ Product Catalog</div>
+        <div class="card-sub">Browse Gelato's live catalog and configure which products you offer.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+          <!-- Left: catalog browser -->
+          <div>
+            <h4 style="font-size:15px;margin-bottom:10px;color:var(--dark);">Step 1 — Choose a catalog</h4>
+            <select id="catalogSelect" onchange="loadCatalogAttributes()"
+              style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:12px;">
+              <option value="">Loading catalogs...</option>
+            </select>
+
+            <div id="catalogAttributes" style="display:none;">
+              <h4 style="font-size:15px;margin:12px 0 10px;color:var(--dark);">Step 2 — Set attributes</h4>
+              <div id="attributeSelects"></div>
+              <button onclick="searchGelatoProducts()"
+                style="width:100%;margin-top:12px;background:var(--orange);color:white;border:none;border-radius:8px;padding:10px;font-size:14px;cursor:pointer;font-weight:700;">
+                🔍 Find Products
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: results -->
+          <div>
+            <h4 style="font-size:15px;margin-bottom:10px;color:var(--dark);">Step 3 — Select products to offer</h4>
+            <div id="catalogResults" style="font-size:13px;color:var(--mid);">
+              Choose a catalog and attributes to see available products.
+            </div>
+          </div>
+        </div>
+
+        <!-- Current product list -->
+        <hr style="border:none;border-top:1px solid var(--border);margin:0 0 20px;">
+        <h4 style="font-size:15px;margin-bottom:10px;color:var(--dark);">Your current product list</h4>
+        <div id="currentProducts" style="font-size:13px;color:var(--mid);">Loading...</div>
+      </div>
+    </div>
+
     <!-- SETTINGS TAB -->
     <div class="tab-panel" id="tab-settings">
       <div class="card">
@@ -581,6 +623,7 @@ function showTab(name) {
   if (name === 'categories') renderCategories();
   if (name === 'library') loadLibrary();
   if (name === 'giftcards') loadGiftCards();
+  if (name === 'products') { loadCatalogs(); loadCurrentProducts(); }
   if (name === 'settings') loadShippingSettings();
 }
 
@@ -1402,6 +1445,191 @@ async function sendGiftCardEmail() {
     sendBtn.textContent = '📧 Send Email';
     sendBtn.disabled    = false;
   }
+}
+
+// ════════════════════════════════════════
+// GELATO PRODUCT CATALOG BROWSER
+// ════════════════════════════════════════
+
+// Products stored in KV — keyed by our name
+let currentProducts = [];
+
+async function loadCatalogs() {
+  try {
+    const res  = await fetch(WORKER_URL + '/gelato-catalogs');
+    const data = await res.json();
+    const select = document.getElementById('catalogSelect');
+    if (!select) return;
+
+    // Filter to relevant catalogs only
+    const relevant = ['mugs', 'apparel', 'phone-cases', 'posters', 'canvas',
+                      'framed-posters', 'tote-bags', 'cushions', 'blankets',
+                      'phone_cases', 'wall-art'];
+    const catalogs = Array.isArray(data) ? data : [];
+
+    select.innerHTML = '<option value="">— Select a product type —</option>' +
+      catalogs.map(c =>
+        `<option value="${c.catalogUid}">${c.title || c.catalogUid}</option>`
+      ).join('');
+  } catch(e) {
+    console.error('Could not load catalogs', e);
+  }
+}
+
+async function loadCatalogAttributes() {
+  const catalogUid = document.getElementById('catalogSelect').value;
+  const attrDiv    = document.getElementById('catalogAttributes');
+  const attrSels   = document.getElementById('attributeSelects');
+
+  if (!catalogUid) { attrDiv.style.display = 'none'; return; }
+
+  attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">Loading attributes...</p>';
+  attrDiv.style.display = 'block';
+
+  try {
+    const res  = await fetch(WORKER_URL + `/gelato-catalog/${catalogUid}`);
+    const data = await res.json();
+    const attrs = data.productAttributes || [];
+
+    if (attrs.length === 0) {
+      attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">No attributes — click Find Products.</p>';
+      return;
+    }
+
+    attrSels.innerHTML = attrs.map(attr => `
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;color:var(--mid);display:block;margin-bottom:4px;">
+          ${attr.title}
+        </label>
+        <select id="attr_${attr.productAttributeUid}"
+          style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+          <option value="">Any</option>
+          ${(attr.values || []).map(v =>
+            `<option value="${v.productAttributeValueUid}">${v.title}</option>`
+          ).join('')}
+        </select>
+      </div>`).join('');
+
+  } catch(e) {
+    attrSels.innerHTML = `<p style="color:var(--red);font-size:13px;">Error: ${e.message}</p>`;
+  }
+}
+
+async function searchGelatoProducts() {
+  const catalogUid  = document.getElementById('catalogSelect').value;
+  const resultsDiv  = document.getElementById('catalogResults');
+  if (!catalogUid) return;
+
+  resultsDiv.innerHTML = '<p style="color:var(--mid);font-size:13px;">Searching...</p>';
+
+  // Collect attribute filters
+  const filters = {};
+  document.querySelectorAll('[id^="attr_"]').forEach(sel => {
+    if (sel.value) {
+      const key = sel.id.replace('attr_', '');
+      filters[key] = [sel.value];
+    }
+  });
+
+  try {
+    const res  = await fetch(WORKER_URL + `/gelato-products/${catalogUid}`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attributeFilters: filters, limit: 50, offset: 0 }),
+    });
+    const data = await res.json();
+    const products = data.products || [];
+
+    if (products.length === 0) {
+      resultsDiv.innerHTML = '<p style="color:var(--mid);font-size:13px;">No products found — try different filters.</p>';
+      return;
+    }
+
+    resultsDiv.innerHTML = `
+      <p style="font-size:12px;color:var(--mid);margin-bottom:8px;">${products.length} products found</p>
+      <div style="max-height:400px;overflow-y:auto;">
+        ${products.map(p => `
+          <div style="background:var(--light);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;">
+            <div style="font-family:monospace;font-size:11px;color:var(--mid);margin-bottom:4px;word-break:break-all;">${p.productUid}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+              ${Object.entries(p.attributes||{}).filter(([k]) => k !== 'ProductStatus').map(([k,v]) =>
+                `<span style="background:white;border:1px solid var(--border);border-radius:4px;padding:2px 6px;">${k}: ${v}</span>`
+              ).join('')}
+            </div>
+            <button onclick="addProductToSite('${p.productUid}', '${catalogUid}')"
+              style="background:var(--teal);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">
+              + Add to site
+            </button>
+          </div>`).join('')}
+      </div>`;
+  } catch(e) {
+    resultsDiv.innerHTML = `<p style="color:var(--red);font-size:13px;">Error: ${e.message}</p>`;
+  }
+}
+
+async function addProductToSite(productUid, catalogUid) {
+  const name = prompt(`Give this product a display name for your site:
+
+${productUid}`);
+  if (!name) return;
+
+  // Save to KV via Worker
+  try {
+    const res = await fetch(WORKER_URL + '/update-shipping', {
+      // Reusing update endpoint pattern — we'll add a proper save-product endpoint
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ productUid, catalogUid, name }),
+    });
+    showToast(`"${name}" added! Remember to update app.js gelatoProducts config.`, 'success');
+    loadCurrentProducts();
+  } catch(e) {
+    showToast('Could not save: ' + e.message, 'error');
+  }
+}
+
+async function loadCurrentProducts() {
+  const div = document.getElementById('currentProducts');
+  if (!div) return;
+
+  // Show the current hardcoded products from app.js as a reference
+  const products = {
+    'Mug (10oz Slim)':  'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
+    'Tote Bag':         'bag_product_bsc_tote-bag_bqa_prm_bsi_std-t_bco_natural_bpr_4-0',
+    'Pillow':           'YOUR_PILLOW_UID',
+    'Blanket':          'YOUR_BLANKET_UID',
+    'Canvas Print':     'YOUR_CANVAS_UID',
+    'T-Shirt':          'YOUR_TSHIRT_UID',
+    'Phone Case':       'YOUR_PHONECASE_UID',
+    'Poster':           'YOUR_POSTER_UID',
+  };
+
+  div.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="background:var(--light);">
+          <th style="padding:7px 10px;text-align:left;">Product</th>
+          <th style="padding:7px 10px;text-align:left;">Gelato UID</th>
+          <th style="padding:7px 10px;text-align:left;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${Object.entries(products).map(([name, uid]) => `
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:7px 10px;font-weight:700;">${name}</td>
+            <td style="padding:7px 10px;font-family:monospace;font-size:11px;word-break:break-all;">${uid}</td>
+            <td style="padding:7px 10px;">
+              ${uid.startsWith('YOUR_')
+                ? '<span style="color:var(--orange);">⚠️ Not configured</span>'
+                : '<span style="color:var(--teal);">✅ Ready</span>'}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <p style="font-size:12px;color:var(--mid);margin-top:10px;">
+      To update these, use the catalog browser above to find the correct UID, then update the
+      <code>gelatoProducts</code> object in <strong>app.js</strong>.
+    </p>`;
 }
 </script>
 </body>
