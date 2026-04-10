@@ -284,7 +284,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.19</strong><br>
+          Version: <strong id="versionNum">v6.20</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -563,7 +563,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.19';
+  if (badge) badge.textContent = 'v6.20';
 }
 
 // ════════════════════════════════════════
@@ -1214,11 +1214,14 @@ function showSendGiftCardEmail(code, amount, expiry, note) {
         <div id="gcEmailCardInfo" style="background:var(--light);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;"></div>
         <div class="form-group">
           <label>Recipient Name</label>
-          <input type="text" id="gcEmailName" placeholder="e.g. John Smith" style="width:100%;">
+          <input type="text" id="gcEmailName" placeholder="e.g. John Smith" 
+                 autocomplete="off" style="width:100%;">
         </div>
         <div class="form-group">
           <label>Recipient Email</label>
-          <input type="email" id="gcEmailAddress" placeholder="e.g. john@example.com" style="width:100%;">
+          <input type="text" id="gcEmailAddress" placeholder="e.g. john@example.com"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                 style="width:100%;">
         </div>
         <div id="gcEmailMsg" style="font-size:12px;min-height:18px;margin-bottom:12px;"></div>
         <div style="display:flex;gap:10px;">
@@ -1260,9 +1263,15 @@ async function sendGiftCardEmail() {
   const msgEl   = document.getElementById('gcEmailMsg');
   const sendBtn = document.getElementById('gcEmailSendBtn');
 
+  // Clean the email — remove any stray characters, spaces or autocorrect additions
+  const cleanEmail = email.replace(/[^a-zA-Z0-9@._+-]/g, '').toLowerCase();
+
   if (!name)  { msgEl.textContent = 'Please enter recipient name';  msgEl.style.color = 'red'; return; }
-  if (!email) { msgEl.textContent = 'Please enter recipient email'; msgEl.style.color = 'red'; return; }
-  if (!email.includes('@')) { msgEl.textContent = 'Please enter a valid email'; msgEl.style.color = 'red'; return; }
+  if (!cleanEmail) { msgEl.textContent = 'Please enter recipient email'; msgEl.style.color = 'red'; return; }
+  if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) { 
+    msgEl.textContent = 'Please enter a valid email address'; 
+    msgEl.style.color = 'red'; return; 
+  }
 
   sendBtn.textContent = 'Sending...';
   sendBtn.disabled    = true;
@@ -1271,7 +1280,7 @@ async function sendGiftCardEmail() {
   try {
     await emailjs.send(EMAILJS.serviceId, EMAILJS.templateId, {
       to_name:        name,
-      to_email:       email,
+      to_email:       cleanEmail,
       gift_card_code: modal.dataset.code,
       amount:         parseFloat(modal.dataset.amount).toFixed(2),
       expiry:         new Date(modal.dataset.expiry).toLocaleDateString('en-GB'),
