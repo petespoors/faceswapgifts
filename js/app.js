@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.01 Test
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.01
 // ═══════════════════════════════════════════
 
 const CONFIG = {
