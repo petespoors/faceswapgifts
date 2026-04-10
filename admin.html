@@ -284,7 +284,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.20</strong><br>
+          Version: <strong id="versionNum">v6.21</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -466,7 +466,11 @@
               <div style="font-size:11px;color:var(--mid);margin-bottom:4px;">GIFT CARD CODE</div>
               <div id="gcCode" style="font-family:monospace;font-size:24px;font-weight:bold;color:var(--dark);letter-spacing:3px;"></div>
               <div id="gcDetails" style="font-size:12px;color:var(--mid);margin-top:6px;"></div>
-              <button onclick="copyGiftCard()" style="margin-top:10px;background:var(--teal);color:white;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;">📋 Copy Code</button>
+              <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+                <button onclick="copyGiftCard()" style="background:var(--teal);color:white;border:none;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;">📋 Copy Code</button>
+                <button onclick="hideGiftCardCode()" style="background:var(--light);color:var(--dark);border:1px solid var(--border);border-radius:6px;padding:6px 16px;cursor:pointer;font-size:13px;">🔒 Hide Code</button>
+              </div>
+              <div style="font-size:11px;color:var(--orange);margin-top:8px;">⚠️ Copy this code now — it will not be shown again</div>
             </div>
           </div>
           <div style="background:var(--light);border-radius:12px;padding:20px;">
@@ -563,7 +567,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.20';
+  if (badge) badge.textContent = 'v6.21';
 }
 
 // ════════════════════════════════════════
@@ -1075,6 +1079,15 @@ function copyGiftCard() {
   showToast('Code copied to clipboard!', 'success');
 }
 
+function hideGiftCardCode() {
+  const result = document.getElementById('gcResult');
+  const code   = document.getElementById('gcCode');
+  code.textContent = '••••-••••-••••';
+  result.style.borderColor = 'var(--border)';
+  result.querySelector('button').style.display = 'none'; // hide copy button
+  loadGiftCards(); // refresh list
+}
+
 async function loadGiftCards() {
   const list  = document.getElementById('gcList');
   const stats = document.getElementById('gcStats');
@@ -1135,14 +1148,16 @@ async function loadGiftCards() {
             const status  = !c.active || c.remaining === 0 ? '🔴 Used' :
                             expired ? '⚠️ Expired' : '🟢 Active';
             return `<tr style="border-bottom:1px solid var(--border);">
-              <td style="padding:8px 12px;font-family:monospace;font-weight:700;">${c.code}</td>
+              <td style="padding:8px 12px;font-family:monospace;font-weight:700;">••••-••••-••••</td>
               <td style="padding:8px 12px;">£${c.amount.toFixed(2)}</td>
               <td style="padding:8px 12px;">£${c.remaining.toFixed(2)}</td>
               <td style="padding:8px 12px;">${new Date(c.expiry).toLocaleDateString('en-GB')}</td>
               <td style="padding:8px 12px;">${status}</td>
               <td style="padding:8px 12px;color:var(--mid);">${c.note || '—'}</td>
               <td style="padding:8px 12px;">
-                ${c.active && new Date(c.expiry) > new Date() ?
+                ${c.sentTo ?
+                  `<span style="color:var(--teal);font-size:12px;">✅ Sent to<br><small style="color:var(--mid);">${c.sentTo}</small></span>` :
+                  c.active && new Date(c.expiry) > new Date() ?
                   `<button onclick="showSendGiftCardEmail('${c.code}','${c.amount}','${c.expiry}','${c.note||''}')"
                     style="background:var(--orange);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">
                     📧 Send
@@ -1293,8 +1308,17 @@ async function sendGiftCardEmail() {
     sendBtn.textContent = '✅ Sent!';
     sendBtn.style.background = '#0E9F8A';
 
-    setTimeout(() => modal.remove(), 2000);
-    showToast('Gift card email sent to ' + email, 'success');
+    // Mark card as sent in KV
+    try {
+      await fetch(WORKER_URL + '/mark-gift-card-sent', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+        body: JSON.stringify({ code: modal.dataset.code, sentTo: cleanEmail }),
+      });
+    } catch(e) { console.warn('Could not mark card as sent', e); }
+
+    setTimeout(() => { modal.remove(); loadGiftCards(); }, 1500);
+    showToast('Gift card email sent to ' + cleanEmail, 'success');
 
   } catch(err) {
     msgEl.textContent   = '❌ Failed to send: ' + (err.text || err.message || 'Unknown error');
