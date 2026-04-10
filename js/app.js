@@ -528,6 +528,11 @@ let gcCardElement = null;
 
 function initStripe() {
   if (stripe) return; // already initialised
+  if (typeof Stripe === 'undefined') {
+    console.warn('Stripe.js not loaded yet — will retry');
+    setTimeout(initStripe, 1000);
+    return;
+  }
   stripe = Stripe(CONFIG.stripePublicKey);
   const elements = stripe.elements();
 
