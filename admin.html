@@ -1490,26 +1490,42 @@ async function loadCatalogAttributes() {
   try {
     const res  = await fetch(WORKER_URL + `/gelato-catalog/${catalogUid}`);
     const data = await res.json();
-    const attrs = data.productAttributes || [];
+    // Handle both direct array and nested {data: [...]} formats
+    const rawAttrs = data.productAttributes || data.data?.productAttributes || [];
+    // Filter out empty attribute sets
+    const attrs = rawAttrs.filter(a => a && (a.productAttributeUid || a.uid));
 
     if (attrs.length === 0) {
-      attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">No attributes — click Find Products.</p>';
+      attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">No filter attributes needed — click Find Products.</p>';
       return;
     }
 
-    attrSels.innerHTML = attrs.map(attr => `
-      <div style="margin-bottom:10px;">
-        <label style="font-size:12px;font-weight:700;color:var(--mid);display:block;margin-bottom:4px;">
-          ${attr.title}
-        </label>
-        <select id="attr_${attr.productAttributeUid}"
-          style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
-          <option value="">Any</option>
-          ${(attr.values || []).map(v =>
-            `<option value="${v.productAttributeValueUid}">${v.title}</option>`
-          ).join('')}
-        </select>
-      </div>`).join('');
+    attrSels.innerHTML = attrs.map(attr => {
+      const uid    = attr.productAttributeUid || attr.uid || '';
+      const title  = attr.title || uid;
+      // Gelato sometimes returns values as object instead of array
+      let values = [];
+      if (Array.isArray(attr.values)) {
+        values = attr.values;
+      } else if (attr.values && typeof attr.values === 'object') {
+        values = Object.values(attr.values);
+      }
+      return `
+        <div style="margin-bottom:10px;">
+          <label style="font-size:12px;font-weight:700;color:var(--mid);display:block;margin-bottom:4px;">
+            ${title}
+          </label>
+          <select id="attr_${uid}"
+            style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+            <option value="">Any</option>
+            ${values.map(v => {
+              const vUid   = v.productAttributeValueUid || v.uid || v.value || '';
+              const vTitle = v.title || vUid;
+              return `<option value="${vUid}">${vTitle}</option>`;
+            }).join('')}
+          </select>
+        </div>`;
+    }).join('');
 
   } catch(e) {
     attrSels.innerHTML = `<p style="color:var(--red);font-size:13px;">Error: ${e.message}</p>`;
