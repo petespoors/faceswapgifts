@@ -1462,10 +1462,11 @@ async function loadCatalogs() {
     if (!select) return;
 
     // Filter to relevant catalogs only
-    const relevant = ['mugs', 'apparel', 'phone-cases', 'posters', 'canvas',
-                      'framed-posters', 'tote-bags', 'cushions', 'blankets',
-                      'phone_cases', 'wall-art'];
-    const catalogs = Array.isArray(data) ? data : [];
+    // API returns {data: [...], pagination: {...}}
+    const catalogs = Array.isArray(data) ? data : (data.data || []);
+
+    // Sort alphabetically and show all
+    catalogs.sort((a,b) => a.title.localeCompare(b.title));
 
     select.innerHTML = '<option value="">— Select a product type —</option>' +
       catalogs.map(c =>
