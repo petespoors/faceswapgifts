@@ -1486,40 +1486,49 @@ async function loadCatalogAttributes() {
 
   attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">Loading attributes...</p>';
   attrDiv.style.display = 'block';
+  document.getElementById('catalogResults').innerHTML = 'Choose a catalog and attributes to see available products.';
 
   try {
     const res  = await fetch(WORKER_URL + `/gelato-catalog/${catalogUid}`);
     const data = await res.json();
-    // Handle both direct array and nested {data: [...]} formats
-    const rawAttrs = data.productAttributes || data.data?.productAttributes || [];
-    // Filter out empty attribute sets
-    const attrs = rawAttrs.filter(a => a && (a.productAttributeUid || a.uid));
+
+    const rawAttrs = data.productAttributes || [];
+
+    // Hide internal/technical attributes not useful for product selection
+    const hiddenAttrs = [
+      'ProductStatus', 'State', 'ProductModel', 'UnifiedCanvasFormat',
+      'ColorType', 'CanvasMaterial', 'Variable'
+    ];
+    const attrs = rawAttrs.filter(a => {
+      const uid = a.productAttributeUid || '';
+      return uid && !hiddenAttrs.includes(uid);
+    });
 
     if (attrs.length === 0) {
-      attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">No filter attributes needed — click Find Products.</p>';
+      attrSels.innerHTML = '<p style="color:var(--mid);font-size:13px;">No filters needed — click Find Products.</p>';
       return;
     }
 
     attrSels.innerHTML = attrs.map(attr => {
-      const uid    = attr.productAttributeUid || attr.uid || '';
-      const title  = attr.title || uid;
-      // Gelato sometimes returns values as object instead of array
+      const uid   = attr.productAttributeUid || '';
+      const title = attr.title || uid;
+
+      // Handle both array and object value formats
       let values = [];
       if (Array.isArray(attr.values)) {
         values = attr.values;
       } else if (attr.values && typeof attr.values === 'object') {
         values = Object.values(attr.values);
       }
+
       return `
         <div style="margin-bottom:10px;">
-          <label style="font-size:12px;font-weight:700;color:var(--mid);display:block;margin-bottom:4px;">
-            ${title}
-          </label>
-          <select id="attr_${uid}"
+          <label style="font-size:12px;font-weight:700;color:var(--mid);display:block;margin-bottom:4px;">${title}</label>
+          <select id="attr_${uid}" onchange="updateCatalogResults()"
             style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
             <option value="">Any</option>
             ${values.map(v => {
-              const vUid   = v.productAttributeValueUid || v.uid || v.value || '';
+              const vUid   = v.productAttributeValueUid || '';
               const vTitle = v.title || vUid;
               return `<option value="${vUid}">${vTitle}</option>`;
             }).join('')}
@@ -1532,6 +1541,12 @@ async function loadCatalogAttributes() {
   }
 }
 
+// Auto-update results when any filter changes
+function updateCatalogResults() {
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(searchGelatoProducts, 400);
+}
+
 async function searchGelatoProducts() {
   const catalogUid  = document.getElementById('catalogSelect').value;
   const resultsDiv  = document.getElementById('catalogResults');
@@ -1539,7 +1554,7 @@ async function searchGelatoProducts() {
 
   resultsDiv.innerHTML = '<p style="color:var(--mid);font-size:13px;">Searching...</p>';
 
-  // Collect attribute filters
+  // Collect attribute filters — only include set values
   const filters = {};
   document.querySelectorAll('[id^="attr_"]').forEach(sel => {
     if (sel.value) {
