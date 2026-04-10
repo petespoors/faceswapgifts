@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.24
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.25
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.23',
+  version:                'v6.25',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -1000,30 +1000,7 @@ async function initiatePayment() {
 // ══════════════════════════════════════════
 // AIRTABLE
 // ══════════════════════════════════════════
-async function saveOrderToAirtable(name, email, addr1, postcode, imageUrl = '') {
-  const orderRef = 'FSG-' + Date.now().toString(36).toUpperCase();
-  const delivery = state.selectedProductPrice >= CONFIG.freeDeliveryThreshold ? 0 : CONFIG.deliveryPrice;
-  const total    = (state.selectedProductPrice + delivery).toFixed(2);
 
-  try {
-    await fetch(`https://api.airtable.com/v0/${CONFIG.airtableBaseId}/${CONFIG.airtableTableName}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${CONFIG.airtableApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: {
-        'Order Ref': orderRef, 'Status': 'New',
-        'Customer Name': name, 'Customer Email': email,
-        'Delivery Address': `${addr1}, ${document.getElementById('custAddr2').value}, ${postcode}`,
-        'Character': `${state.selectedChar?.typeLabel} — ${capitalise(state.selectedChar?.gender)}`,
-        'Product': state.selectedProduct?.name,
-        'Order Total': parseFloat(total),
-        'Gift Message': document.getElementById('giftMessage').value,
-        'Swapped Image URL': imageUrl || state.swappedImageUrl || '',
-        'Ordered At': new Date().toISOString(),
-      }})
-    });
-  } catch(err) { console.error('Airtable error:', err); }
-  return orderRef;
-}
 
 // ══════════════════════════════════════════
 // ORDER REFERENCE GENERATOR

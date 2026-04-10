@@ -269,7 +269,6 @@
       <div class="nav-tab" onclick="showTab('upload')">Upload Images</div>
       <div class="nav-tab" onclick="showTab('library')">Image Library</div>
       <div class="nav-tab" onclick="showTab('categories')">Categories</div>
-      <div class="nav-tab" onclick="showTab('orders')">Orders</div>
       <div class="nav-tab" onclick="showTab('giftcards')">🎁 Gift Cards</div>
       <div class="nav-tab" onclick="showTab('products')">🛍️ Products</div>
       <div class="nav-tab" onclick="showTab('settings')">⚙️ Settings</div>
@@ -285,7 +284,7 @@
         <h2 style="font-size:28px;">Good to see you! 👋</h2>
         <div style="background:var(--light);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:12px;color:var(--mid);font-family:'Nunito',sans-serif;" id="aboutBox">
           <strong style="color:var(--dark);">FaceSwapGifts Admin</strong><br>
-          Version: <strong id="versionNum">v6.24</strong><br>
+          Version: <strong id="versionNum">v6.25</strong><br>
           Deployed: <strong>March 2026</strong><br>
           Site: <a href="/" target="_blank" style="color:var(--orange);">View live site</a>
         </div>
@@ -431,15 +430,7 @@
     </div>
 
     <!-- ORDERS TAB -->
-    <div class="tab-panel" id="tab-orders">
-      <div class="card">
-        <div class="card-title">Orders</div>
-        <div class="card-sub">Review and approve face-swapped images before sending to print.</div>
-        <div id="ordersContent">
-          <p style="color:var(--mid);font-size:14px;">Connect your Airtable account in app.js to see live orders here.</p>
-        </div>
-      </div>
-    </div>
+    
 
     <!-- GIFT CARDS TAB -->
     <div class="tab-panel" id="tab-giftcards">
@@ -603,7 +594,7 @@ function initAdmin() {
   setupDragDrop();
   // Set version badge in nav
   const badge = document.getElementById('versionBadge');
-  if (badge) badge.textContent = 'v6.24';
+  if (badge) badge.textContent = 'v6.25';
 }
 
 // ════════════════════════════════════════
