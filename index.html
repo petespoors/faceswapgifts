@@ -30,6 +30,60 @@
 </head>
 <body>
 
+<!-- ── BETA PASSWORD PROTECTION ── -->
+<!-- Remove this entire block before going live -->
+<div id="betaGate" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#FFF1E0,#F3EEFF);z-index:99999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:20px;padding:40px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.15);text-align:center;">
+    <div style="font-family:'Fredoka One',sans-serif;font-size:28px;color:#F07A1A;margin-bottom:4px;">FaceSwap<span style="color:#7C3AED;">Gifts</span></div>
+    <p style="color:#555;font-size:14px;margin-bottom:24px;">This site is currently in private beta.<br>Please enter the access password.</p>
+    <input type="password" id="betaPassword" placeholder="Enter password"
+           onkeydown="if(event.key==='Enter')checkBetaPassword()"
+           style="width:100%;padding:14px;border:2px solid #E5E7EB;border-radius:10px;font-size:16px;font-family:'Nunito',sans-serif;box-sizing:border-box;margin-bottom:12px;text-align:center;letter-spacing:4px;">
+    <div id="betaError" style="color:#E24B4A;font-size:13px;margin-bottom:12px;min-height:18px;"></div>
+    <button onclick="checkBetaPassword()"
+      style="width:100%;background:#F07A1A;color:white;border:none;border-radius:50px;padding:14px;font-size:16px;font-family:'Fredoka One',sans-serif;cursor:pointer;">
+      Enter Site
+    </button>
+  </div>
+</div>
+
+<script>
+// ── BETA PASSWORD CHECK ──
+// Change 'faceswap2026' to whatever password you want
+// Remove this entire script block before going live
+(function() {
+  const BETA_PASSWORD = 'faceswap2026';
+  const gate = document.getElementById('betaGate');
+
+  // Already authenticated this session?
+  if (sessionStorage.getItem('beta_auth') === '1') {
+    gate.style.display = 'none';
+    return;
+  }
+
+  // Show the gate
+  gate.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('betaPassword').focus(), 100);
+})();
+
+function checkBetaPassword() {
+  const BETA_PASSWORD = 'faceswap2026';
+  const input  = document.getElementById('betaPassword').value;
+  const errEl  = document.getElementById('betaError');
+  if (input === BETA_PASSWORD) {
+    sessionStorage.setItem('beta_auth', '1');
+    document.getElementById('betaGate').style.display = 'none';
+    document.body.style.overflow = '';
+  } else {
+    errEl.textContent = 'Incorrect password — please try again';
+    document.getElementById('betaPassword').value = '';
+    document.getElementById('betaPassword').focus();
+  }
+}
+</script>
+<!-- ── END BETA PASSWORD PROTECTION ── -->
+
 <!-- ═══════════════════════════════════════════
      NAVIGATION
 ═══════════════════════════════════════════ -->
@@ -700,6 +754,7 @@
   </div>
 </div>
 
+<script data-cfasync="false" src="/cdn-cgi/
 
 <div id="toast"></div>
 
