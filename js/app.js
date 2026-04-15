@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.32
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.33
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.32',
+  version:                'v6.33',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -1561,7 +1561,6 @@ window.addEventListener('scroll', () => {
 });
 function scrollToBuilder() {
   document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
-  if (n === 4) initStripe(); // initialise Stripe Elements when checkout shown
 }
 
 // ══════════════════════════════════════════
