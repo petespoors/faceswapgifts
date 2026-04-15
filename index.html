@@ -276,93 +276,134 @@ function checkBetaPassword() {
     <!-- ── STEP 3: PRODUCT PICKER ── -->
     <div class="builder-step hidden" id="step3">
       <h3 class="step-title">Step 3 — Choose Your Product</h3>
-      <p class="step-sub">Your image will be printed on whichever product you choose. All products are high quality and dispatched within 3–5 working days.</p>
+      <p class="step-sub">Your face-swap will be printed on whichever product you choose. All products are high quality and dispatched within 3–5 working days.</p>
 
       <div class="product-grid" id="productGrid">
-        <div class="product-card" onclick="selectProduct(this, 'Mug', 14.99, 'mug')" data-product="mug">
-          <div class="product-img-wrap">
-            <div class="product-emoji">☕</div>
-          </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Ceramic Mug', 14.99, 'mug', 'mugs')" data-product="mug">
+          <div class="product-img-wrap"><div class="product-emoji">☕</div></div>
           <div class="product-info">
             <div class="product-name">Ceramic Mug</div>
-            <div class="product-desc">330ml dishwasher-safe mug. Wrap-around print.</div>
+            <div class="product-desc">Wrap-around print. Dishwasher safe.</div>
             <div class="product-price">£14.99</div>
           </div>
         </div>
-        <div class="product-card" onclick="selectProduct(this, 'Pillow', 19.99, 'pillow')" data-product="pillow">
-          <div class="product-img-wrap">
-            <div class="product-emoji">🛋️</div>
-          </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Cushion', 24.99, 'cushion', 'cushions')" data-product="cushion">
+          <div class="product-img-wrap"><div class="product-emoji">🛋️</div></div>
           <div class="product-info">
-            <div class="product-name">Cushion / Pillow</div>
-            <div class="product-desc">45×45cm soft cushion with insert included.</div>
-            <div class="product-price">£19.99</div>
+            <div class="product-name">Cushion</div>
+            <div class="product-desc">45×45cm soft cushion. Insert included.</div>
+            <div class="product-price">£24.99</div>
           </div>
         </div>
-        <div class="product-card" onclick="selectProduct(this, 'Blanket', 34.99, 'blanket')" data-product="blanket">
-          <div class="product-img-wrap">
-            <div class="product-emoji">🧸</div>
-          </div>
-          <div class="product-info">
-            <div class="product-name">Fleece Blanket</div>
-            <div class="product-desc">150×200cm ultra-soft fleece. Perfect for sofa or bed.</div>
-            <div class="product-price">£34.99</div>
-          </div>
-        </div>
-        <div class="product-card" onclick="selectProduct(this, 'Phone Case', 16.99, 'phonecase')" data-product="phonecase">
-          <div class="product-img-wrap">
-            <div class="product-emoji">📱</div>
-          </div>
-          <div class="product-info">
-            <div class="product-name">Phone Case</div>
-            <div class="product-desc">Tough case for iPhone & Samsung. Choose your model at checkout.</div>
-            <div class="product-price">£16.99</div>
-          </div>
-        </div>
-        <div class="product-card" onclick="selectProduct(this, 'Canvas Print', 29.99, 'canvas')" data-product="canvas">
-          <div class="product-img-wrap">
-            <div class="product-emoji">🖼️</div>
-          </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Canvas Print', 29.99, 'canvas', 'canvas')" data-product="canvas">
+          <div class="product-img-wrap"><div class="product-emoji">🖼️</div></div>
           <div class="product-info">
             <div class="product-name">Canvas Print</div>
-            <div class="product-desc">Gallery-quality stretched canvas. Multiple sizes available.</div>
+            <div class="product-desc">Gallery-quality stretched canvas. Ready to hang.</div>
             <div class="product-price">from £29.99</div>
           </div>
         </div>
-        <div class="product-card" onclick="selectProduct(this, 'T-Shirt', 22.99, 'tshirt')" data-product="tshirt">
-          <div class="product-img-wrap">
-            <div class="product-emoji">👕</div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Fleece Blanket', 34.99, 'blanket', 'blankets')" data-product="blanket">
+          <div class="product-img-wrap"><div class="product-emoji">🛏️</div></div>
+          <div class="product-info">
+            <div class="product-name">Fleece Blanket</div>
+            <div class="product-desc">150×200cm ultra-soft fleece.</div>
+            <div class="product-price">£34.99</div>
           </div>
+        </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'T-Shirt', 22.99, 'tshirt', 'apparel')" data-product="tshirt">
+          <div class="product-img-wrap"><div class="product-emoji">👕</div></div>
           <div class="product-info">
             <div class="product-name">T-Shirt</div>
-            <div class="product-desc">Premium cotton tee. Sizes XS–3XL. Men's & Women's cut.</div>
+            <div class="product-desc">Premium unisex tee. Multiple colours.</div>
             <div class="product-price">£22.99</div>
           </div>
         </div>
-        <div class="product-card" onclick="selectProduct(this, 'Tote Bag', 13.99, 'tote')" data-product="tote">
-          <div class="product-img-wrap">
-            <div class="product-emoji">👜</div>
-          </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Hoodie', 39.99, 'hoodie', 'hoodies')" data-product="hoodie">
+          <div class="product-img-wrap"><div class="product-emoji">🧥</div></div>
           <div class="product-info">
-            <div class="product-name">Tote Bag</div>
-            <div class="product-desc">Sturdy cotton tote. Great for shopping or as a gift bag.</div>
-            <div class="product-price">£13.99</div>
+            <div class="product-name">Hoodie</div>
+            <div class="product-desc">Premium pullover hoodie. Multiple colours.</div>
+            <div class="product-price">£39.99</div>
           </div>
         </div>
-        <div class="product-card" onclick="selectProduct(this, 'Poster', 12.99, 'poster')" data-product="poster">
-          <div class="product-img-wrap">
-            <div class="product-emoji">🗓️</div>
-          </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Poster', 12.99, 'poster', 'posters')" data-product="poster">
+          <div class="product-img-wrap"><div class="product-emoji">📜</div></div>
           <div class="product-info">
-            <div class="product-name">Poster Print</div>
-            <div class="product-desc">A3 or A2 high-gloss poster. Great for framing.</div>
+            <div class="product-name">Poster</div>
+            <div class="product-desc">High-gloss print. Multiple sizes.</div>
             <div class="product-price">from £12.99</div>
           </div>
         </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Framed Poster', 24.99, 'framedposter', 'framed-posters')" data-product="framedposter">
+          <div class="product-img-wrap"><div class="product-emoji">🖼️</div></div>
+          <div class="product-info">
+            <div class="product-name">Framed Poster</div>
+            <div class="product-desc">Ready-to-hang. Gift-ready presentation.</div>
+            <div class="product-price">from £24.99</div>
+          </div>
+        </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Tote Bag', 16.99, 'tote', 'tote-bags')" data-product="tote">
+          <div class="product-img-wrap"><div class="product-emoji">👜</div></div>
+          <div class="product-info">
+            <div class="product-name">Tote Bag</div>
+            <div class="product-desc">Natural cotton. Large print area.</div>
+            <div class="product-price">£16.99</div>
+          </div>
+        </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Phone Case', 19.99, 'phonecase', 'phone-cases')" data-product="phonecase">
+          <div class="product-img-wrap"><div class="product-emoji">📱</div></div>
+          <div class="product-info">
+            <div class="product-name">Phone Case</div>
+            <div class="product-desc">Tough or slim. All major models.</div>
+            <div class="product-price">£19.99</div>
+          </div>
+        </div>
+
+        <div class="product-card" onclick="selectProduct(this, 'Sweatshirt', 34.99, 'sweatshirt', 'sweatshirts')" data-product="sweatshirt">
+          <div class="product-img-wrap"><div class="product-emoji">👔</div></div>
+          <div class="product-info">
+            <div class="product-name">Sweatshirt</div>
+            <div class="product-desc">Premium crew neck. Multiple colours.</div>
+            <div class="product-price">£34.99</div>
+          </div>
+        </div>
+
       </div>
 
-      <div class="step-nav">
+      <!-- Dynamic variant selectors — populated from Gelato catalog -->
+      <div id="productVariants" style="display:none;margin-top:20px;padding:20px;background:var(--light);border-radius:12px;">
+        <h4 id="variantTitle" style="font-size:15px;margin-bottom:12px;color:var(--dark);">Choose your options</h4>
+        <div id="variantSelects"></div>
+      </div>
+
+      <!-- Product mockup preview -->
+      <div id="mockupSection" style="display:none;margin-top:24px;text-align:center;">
+        <h4 style="font-size:15px;margin-bottom:12px;color:var(--dark);">Preview</h4>
+        <div id="mockupContainer" style="position:relative;display:inline-block;max-width:400px;width:100%;">
+          <img id="mockupImage" src="" alt="Product preview"
+               style="width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+          <div id="mockupLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.9);border-radius:12px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
+            <div style="width:36px;height:36px;border:3px solid #eee;border-top-color:#F07A1A;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            <div style="font-size:13px;color:#888;">Generating your preview...</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--mid);margin-top:8px;">AI-generated preview — actual print may vary slightly</p>
+      </div>
+
+      <div class="step-nav" style="margin-top:20px;">
         <button class="btn-back" onclick="goToStep(2)">← Back</button>
+        <button class="btn-next" id="step3Next" style="display:none;" onclick="goToStep(4)">Continue to checkout →</button>
       </div>
     </div>
 

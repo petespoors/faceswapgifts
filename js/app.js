@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.25
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.26
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.25',
+  version:                'v6.26',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -751,38 +751,208 @@ function retakePhoto() {
 // ══════════════════════════════════════════
 // PRODUCT SELECTION
 // ══════════════════════════════════════════
-const PRODUCT_OPTIONS = {
-  phonecase: { label: 'Phone model', options: ['iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15','iPhone 14 Pro Max','iPhone 14','Samsung Galaxy S24 Ultra','Samsung Galaxy S24+','Samsung Galaxy S24','Samsung Galaxy S23'] },
-  tshirt:    { label: 'Size', options: ['XS','S','M','L','XL','2XL','3XL'] },
-  canvas:    { label: 'Size', options: ['A4 (21×30cm)','A3 (30×42cm)','A2 (42×59cm)','50×50cm Square','60×80cm Large'] },
-  poster:    { label: 'Size', options: ['A3 (30×42cm) — £12.99','A2 (42×59cm) — £18.99'] },
+// Product catalog — catalogUid maps to Gelato catalog
+// Variant attributes we care about per product type
+const PRODUCT_CATALOG = {
+  mug:          { catalogUid: 'mugs',          variants: [] },
+  cushion:      { catalogUid: 'cushions',       variants: [] },
+  canvas:       { catalogUid: 'canvas',         variants: ['CanvasFormat','Orientation'] },
+  blanket:      { catalogUid: 'blankets',       variants: [] },
+  tshirt:       { catalogUid: 'apparel',        variants: ['Apparel_Size','Apparel_Color','Apparel_Style'] },
+  hoodie:       { catalogUid: 'hoodies',        variants: ['Apparel_Size','Apparel_Color'] },
+  sweatshirt:   { catalogUid: 'sweatshirts',    variants: ['Apparel_Size','Apparel_Color'] },
+  poster:       { catalogUid: 'posters',        variants: ['PaperFormat','Orientation'] },
+  framedposter: { catalogUid: 'framed-posters', variants: ['PaperFormat','Orientation'] },
+  tote:         { catalogUid: 'tote-bags',      variants: [] },
+  phonecase:    { catalogUid: 'phone-cases',    variants: ['PhoneModel','CaseType'] },
 };
 
-function selectProduct(el, name, price, type) {
+// Attributes to always hide
+const HIDDEN_ATTRS = [
+  'ProductStatus','State','ProductModel','UnifiedCanvasFormat',
+  'ColorType','CanvasMaterial','Variable','ColorType','PrintType'
+];
+
+async function selectProduct(el, name, price, type, catalogUid) {
   document.querySelectorAll('.product-card').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
-  state.selectedProduct = { name, price, type };
+  state.selectedProduct     = { name, price, type, catalogUid };
   state.selectedProductPrice = price;
-
-  const optionsDiv    = document.getElementById('productOptions');
-  const optionsSelect = document.getElementById('productOptionsSelect');
-  const optionsLabel  = document.getElementById('productOptionsLabel');
-
-  if (PRODUCT_OPTIONS[type]) {
-    optionsLabel.textContent = PRODUCT_OPTIONS[type].label;
-    optionsSelect.innerHTML  = PRODUCT_OPTIONS[type].options.map(o => `<option>${o}</option>`).join('');
-    optionsDiv.style.display = 'block';
-  } else {
-    optionsDiv.style.display = 'none';
-  }
+  state.selectedVariants    = {};
 
   updateCheckoutSummary();
 
-  // Generate AI product mockup
-  if (state.swappedImageUrl) generateProductMockup(type, name);
+  // Hide next button until variants selected (or no variants needed)
+  const nextBtn = document.getElementById('step3Next');
+  const variantsDiv = document.getElementById('productVariants');
+  const mockupSection = document.getElementById('mockupSection');
 
-  setTimeout(() => goToStep(4), 300);
+  variantsDiv.style.display   = 'none';
+  mockupSection.style.display = 'none';
+  if (nextBtn) nextBtn.style.display = 'none';
+
+  // Load variants from Gelato catalog via Worker
+  await loadProductVariants(type, catalogUid, name);
 }
+
+async function loadProductVariants(type, catalogUid, productName) {
+  const variantsDiv  = document.getElementById('productVariants');
+  const variantSels  = document.getElementById('variantSelects');
+  const variantTitle = document.getElementById('variantTitle');
+  const nextBtn      = document.getElementById('step3Next');
+
+  try {
+    const res  = await fetch(CONFIG.workerUrl + '/get-catalog-variants', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ catalogUid }),
+    });
+    const data = await res.json();
+    const rawAttrs = data.productAttributes || [];
+
+    // Filter to useful attributes only
+    const attrs = rawAttrs.filter(a => {
+      const uid = a.productAttributeUid || '';
+      return uid && !HIDDEN_ATTRS.includes(uid);
+    });
+
+    if (attrs.length === 0) {
+      // No variants needed — show next button immediately
+      if (nextBtn) nextBtn.style.display = 'inline-block';
+      // Trigger mockup generation straight away
+      generateProductMockup(type, productName);
+      return;
+    }
+
+    // Show variant selectors
+    variantTitle.textContent = `Choose your ${productName} options`;
+    variantsDiv.style.display = 'block';
+
+    variantSels.innerHTML = attrs.map(attr => {
+      const uid   = attr.productAttributeUid || '';
+      const title = attr.title || uid;
+
+      let values = [];
+      if (Array.isArray(attr.values)) {
+        values = attr.values;
+      } else if (attr.values && typeof attr.values === 'object') {
+        values = Object.values(attr.values);
+      }
+
+      return `
+        <div style="margin-bottom:12px;">
+          <label style="font-size:13px;font-weight:700;color:var(--dark);display:block;margin-bottom:6px;">${title}</label>
+          <select onchange="onVariantChange('${uid}', this.value)"
+            style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:'Nunito',sans-serif;">
+            <option value="">— Select ${title} —</option>
+            ${values.map(v => {
+              const vUid   = v.productAttributeValueUid || '';
+              const vTitle = v.title || vUid;
+              return `<option value="${vUid}">${vTitle}</option>`;
+            }).join('')}
+          </select>
+        </div>`;
+    }).join('');
+
+    // Store required variant count
+    state.requiredVariants = attrs.length;
+    state.selectedVariants = {};
+
+  } catch(e) {
+    console.warn('Could not load variants:', e.message);
+    // On error — just proceed without variants
+    if (nextBtn) nextBtn.style.display = 'inline-block';
+    generateProductMockup(type, productName);
+  }
+}
+
+function onVariantChange(attrUid, value) {
+  if (value) {
+    state.selectedVariants[attrUid] = value;
+  } else {
+    delete state.selectedVariants[attrUid];
+  }
+
+  const selected  = Object.keys(state.selectedVariants).length;
+  const required  = state.requiredVariants || 0;
+  const nextBtn   = document.getElementById('step3Next');
+  const product   = state.selectedProduct;
+
+  if (selected >= required && nextBtn) {
+    nextBtn.style.display = 'inline-block';
+    // Generate mockup once all variants selected
+    if (product) generateProductMockup(product.type, product.name);
+  }
+}
+
+// ══════════════════════════════════════════
+// AI PRODUCT MOCKUP — FLUX.1 Kontext Pro
+// ══════════════════════════════════════════
+async function generateProductMockup(productType, productName) {
+  if (!state.swappedImagePublicUrl) return; // need the Cloudinary URL
+
+  const mockupSection  = document.getElementById('mockupSection');
+  const mockupImage    = document.getElementById('mockupImage');
+  const mockupLoading  = document.getElementById('mockupLoading');
+
+  mockupSection.style.display  = 'block';
+  mockupLoading.style.display  = 'flex';
+  mockupImage.style.opacity    = '0';
+
+  try {
+    debugLog('Generating product mockup for: ' + productName);
+
+    const prompt = `Take this portrait illustration and place it as a printed design on a ${productName}. ` +
+      `Show the ${productName} as a professional product photograph on a clean white background. ` +
+      `The portrait should be clearly visible on the ${productName} surface. ` +
+      `Maintain the original illustration style. Studio lighting. High quality product photography.`;
+
+    const payload = {
+      prompt,
+      input_image:      state.swappedImagePublicUrl,
+      aspect_ratio:     '1:1',
+      output_format:    'jpg',
+      safety_tolerance: 2,
+    };
+
+    const res = await fetch('https://api.segmind.com/v1/flux-kontext-pro', {
+      method:  'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key':    CONFIG.segmindApiKey,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error('Mockup failed: ' + err);
+    }
+
+    // Response is raw binary image
+    const blob    = await res.blob();
+    const mockUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror   = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    state.mockupImageUrl      = mockUrl;
+    mockupImage.src           = mockUrl;
+    mockupImage.style.opacity = '1';
+    mockupLoading.style.display = 'none';
+    debugLog('Mockup generated!');
+
+  } catch(e) {
+    debugLog('Mockup error: ' + e.message);
+    mockupLoading.style.display = 'none';
+    // Just hide mockup section on error — don't block the flow
+    mockupSection.style.display = 'none';
+  }
+}
+
+
 
 // ══════════════════════════════════════════
 // AI PRODUCT MOCKUP GENERATION
