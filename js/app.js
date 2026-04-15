@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.33
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.34
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.33',
+  version:                'v6.34',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -1210,62 +1210,7 @@ const PRODUCT_PROMPTS = {
   poster:    'product photography of a high gloss poster print showing a portrait image, pinned to a white wall, studio lighting, professional product shot, high quality',
 };
 
-async function generateProductMockup(productType, productName) {
-  const mockupWrap = document.getElementById('mockupWrap');
-  const mockupImg  = document.getElementById('mockupFaceImage');
-  const mockupLabel = document.getElementById('mockupLabel');
 
-  // Show loading state
-  mockupLabel.textContent = `Generating ${productName} preview...`;
-  mockupImg.style.opacity = '0.3';
-
-  try {
-    const prompt = PRODUCT_PROMPTS[productType] ||
-      `product photography of a ${productName} with a custom portrait image printed on it, professional product shot, white background, high quality`;
-
-    // Use Segmind img2img — feed in the face-swapped image, generate product mockup
-    const sourceBase64 = state.swappedImageUrl.split(',')[1];
-
-    const payload = {
-      prompt:           prompt,
-      negative_prompt:  'blurry, low quality, distorted face, ugly, bad proportions, watermark, text',
-      init_image:       sourceBase64,
-      strength:         0.65,  // how much to transform — 0=keep original, 1=ignore original
-      guidance_scale:   7.5,
-      num_inference_steps: 25,
-      samples:          1,
-      base64_encoded:   true,
-      output_format:    'jpg',
-      img_width:        1024,
-      img_height:       1024,
-    };
-
-    const response = await fetch('https://api.segmind.com/v1/sdxl1.0-img2img', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CONFIG.segmindApiKey,
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error(`Mockup error ${response.status}`);
-    const data = await response.json();
-
-    const mockupUrl = `data:image/jpeg;base64,${data.image}`;
-    state.mockupImageUrl = mockupUrl;
-    mockupImg.src = mockupUrl;
-    mockupImg.style.opacity = '1';
-    mockupLabel.textContent = productName;
-
-  } catch (err) {
-    console.error('Mockup generation error:', err);
-    // Fall back to showing the face-swapped image directly
-    mockupImg.src = state.swappedImageUrl;
-    mockupImg.style.opacity = '1';
-    mockupLabel.textContent = productName;
-  }
-}
 
 function updateCheckoutSummary() {
   if (!state.selectedChar || !state.selectedProduct) return;
