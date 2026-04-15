@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.28
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.31
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.28',
+  version:                'v6.31',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -801,16 +801,31 @@ const ATTR_LABELS = {
 
 // Clean up Gelato's verbose value labels
 function cleanAttrValue(attrUid, value) {
-  // Remove redundant product type prefix e.g. "Ceramic Mug - Green" -> "Green"
-  return value
-    .replace(/^Ceramic Mug\s*[-–]\s*/i, '')
-    .replace(/^Magic Mug\s*[-–]\s*/i, 'Magic — ')
-    .replace(/^Colour Mug\s*[-–]\s*/i, 'Coloured — ')
-    .replace(/^Canvas substrate\s*/i, 'Standard')
-    .replace(/^Wood FSC\s*/i, '')
-    .replace(/^Thick wooden canvas frames\s*/i, 'Thick frame')
-    .replace(/^Slim wooden frames of canvases\s*/i, 'Slim frame')
-    .trim() || value;
+  if (attrUid === 'MugMaterial') {
+    // Keep the full description but tidy it up slightly
+    return value
+      .replace(/^Ceramic Mug - /i, 'Ceramic — ')
+      .replace(/^Magic Mug - /i, 'Magic (colour-change) — ')
+      .replace(/^Colour Mug - /i, 'Coloured — ')
+      .replace(/^Metal mug with a white enamel layer$/i, 'Metal with white enamel')
+      .replace(/^Double-walled contemporary stainless steel drink-ware with white base colour$/i, 'Stainless steel (double-walled)')
+      .replace(/^Porcelain Mug - /i, 'Porcelain — ')
+      .trim() || value;
+  }
+  if (attrUid === 'CanvasThicknessType') {
+    return value
+      .replace(/^Thick wooden canvas frames$/i, 'Thick frame (4cm)')
+      .replace(/^Slim wooden frames of canvases$/i, 'Slim frame (2cm)')
+      .trim() || value;
+  }
+  if (attrUid === 'CanvasMaterial') {
+    return value.replace(/^Canvas substrate$/i, 'Standard canvas').trim() || value;
+  }
+  if (attrUid === 'CanvasFrame') {
+    return value.replace(/^Wood FSC /i, '').trim() || value;
+  }
+  // For all others — return as-is, Gelato labels are usually fine
+  return value;
 }
 
 async function selectProduct(el, name, price, type, catalogUid) {
@@ -943,15 +958,33 @@ async function generateProductMockup(productType, productName) {
   try {
     debugLog('Generating product mockup for: ' + productName);
 
-    const prompt = `Take this portrait illustration and place it as a printed design on a ${productName}. ` +
-      `Show the ${productName} as a professional product photograph on a clean white background. ` +
-      `The portrait should be clearly visible on the ${productName} surface. ` +
-      `Maintain the original illustration style. Studio lighting. High quality product photography.`;
+    // Product-specific prompts for best mockup results
+    const productPrompts = {
+      'Ceramic Mug':    'Transform this into a product photo: a white ceramic coffee mug sitting on a wooden table, with this portrait image printed as a wrap-around design on the mug surface. Studio lighting, white background, professional product photography. The mug must be clearly visible and central.',
+      'Cushion':        'Transform this into a product photo: a square decorative cushion on a sofa, with this portrait image printed on the front face of the cushion. Soft natural lighting, professional product photography.',
+      'Canvas Print':   'Transform this into a product photo: a stretched canvas print hanging on a white wall, showing this portrait image printed on the canvas. Gallery lighting, professional product photography.',
+      'Fleece Blanket': 'Transform this into a product photo: a soft folded fleece blanket showing this portrait image printed across the surface. Warm lighting, professional product photography.',
+      'T-Shirt':        'Transform this into a product photo: a white t-shirt laid flat or on a mannequin, with this portrait image printed on the front chest area. Clean studio lighting, white background, professional product photography.',
+      'Hoodie':         'Transform this into a product photo: a white hoodie on a mannequin, with this portrait image printed on the front. Clean studio lighting, white background, professional product photography.',
+      'Poster':         'Transform this into a product photo: a high-quality poster print pinned to a white wall, showing this portrait image printed on the poster. Gallery lighting, professional product photography.',
+      'Framed Poster':  'Transform this into a product photo: a framed poster on a white wall, showing this portrait image printed and framed. Gallery lighting, professional product photography.',
+      'Tote Bag':       'Transform this into a product photo: a natural cotton tote bag hanging, with this portrait image printed on the front face. Clean studio lighting, white background, professional product photography.',
+      'Phone Case':     'Transform this into a product photo: a smartphone with a custom printed phone case, showing this portrait image printed on the back of the case. Clean studio lighting, white background, professional product photography.',
+      'Sweatshirt':     'Transform this into a product photo: a white sweatshirt on a mannequin, with this portrait image printed on the front. Clean studio lighting, white background, professional product photography.',
+    };
+
+    const prompt = productPrompts[productName] ||
+      `Transform this into a product photo: a ${productName} with this portrait image printed on it. ` +
+      `Show the ${productName} clearly as the main subject. Professional product photography, white background, studio lighting.`;
+
+    // Use 4:3 landscape for most products — better for showing product in context
+    const portraitProducts = ['poster','framedposter','canvas','phonecase'];
+    const aspectRatio = portraitProducts.includes(productType) ? '3:4' : '4:3';
 
     const payload = {
       prompt,
       input_image:      state.swappedImagePublicUrl,
-      aspect_ratio:     '1:1',
+      aspect_ratio:     aspectRatio,
       output_format:    'jpg',
       safety_tolerance: 2,
     };
@@ -985,7 +1018,7 @@ async function generateProductMockup(productType, productName) {
     mockupLoading.style.display = 'none';
     debugLog('Mockup generated!');
     // Update title
-    const mockupTitle = mockupSection.querySelector('h4');
+    const mockupTitle = document.getElementById('mockupTitle');
     if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
 
   } catch(e) {

@@ -389,16 +389,19 @@ function checkBetaPassword() {
 
       <!-- Product mockup preview -->
       <div id="mockupSection" style="display:none;margin-top:24px;text-align:center;">
-        <h4 style="font-size:15px;margin-bottom:12px;color:var(--dark);">🎨 Generating your preview...</h4>
-        <div id="mockupContainer" style="position:relative;display:inline-block;max-width:400px;width:100%;">
+        <h4 id="mockupTitle" style="font-size:15px;margin-bottom:12px;color:var(--dark);">🎨 Generating your preview...</h4>
+        <div id="mockupContainer" style="position:relative;display:inline-block;max-width:480px;width:100%;background:#f8f8f8;border-radius:12px;overflow:hidden;">
           <img id="mockupImage" src="" alt="Product preview"
-               style="width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-          <div id="mockupLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.9);border-radius:12px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
+               style="width:100%;height:auto;display:block;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+          <div id="mockupLoading" style="display:flex;position:absolute;inset:0;background:rgba(255,255,255,0.92);border-radius:12px;align-items:center;justify-content:center;flex-direction:column;gap:10px;">
             <div style="width:36px;height:36px;border:3px solid #eee;border-top-color:#F07A1A;border-radius:50%;animation:spin 1s linear infinite;"></div>
-            <div style="font-size:13px;color:#888;">Generating your preview...</div>
+            <div style="font-size:13px;color:#888;font-weight:700;">Creating your preview...</div>
+            <div style="font-size:11px;color:#aaa;">This takes about 20 seconds</div>
           </div>
         </div>
-        <p style="font-size:12px;color:var(--mid);margin-top:8px;">AI-generated preview — actual print may vary slightly</p>
+        <p style="font-size:11px;color:var(--mid);margin-top:10px;font-style:italic;">
+          🎨 This image is indicative only — the actual printed product may differ slightly in colour and positioning.
+        </p>
       </div>
 
       <div class="step-nav" style="margin-top:20px;">
