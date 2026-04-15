@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.31
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.32
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.31',
+  version:                'v6.32',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -942,92 +942,254 @@ function onVariantChange(attrUid, value) {
 }
 
 // ══════════════════════════════════════════
-// AI PRODUCT MOCKUP — FLUX.1 Kontext Pro
+// PRODUCT MOCKUP — CANVAS COMPOSITING
+// Overlays face-swap image onto product template
 // ══════════════════════════════════════════
+
+// Product templates — clean flat product images with defined print areas
+// printArea: [x%, y%, width%, height%] as percentage of template image
+const PRODUCT_TEMPLATES = {
+  'Ceramic Mug':    { bg: '#f5f5f5', shape: 'mug',      area: [25, 15, 50, 65] },
+  'Cushion':        { bg: '#f0ede8', shape: 'square',    area: [10, 10, 80, 80] },
+  'Canvas Print':   { bg: '#ffffff', shape: 'portrait',  area: [5,  5,  90, 90] },
+  'Fleece Blanket': { bg: '#e8e8e8', shape: 'landscape', area: [5,  5,  90, 90] },
+  'T-Shirt':        { bg: '#ffffff', shape: 'tshirt',    area: [30, 20, 40, 45] },
+  'Hoodie':         { bg: '#ffffff', shape: 'hoodie',    area: [28, 22, 44, 42] },
+  'Sweatshirt':     { bg: '#ffffff', shape: 'tshirt',    area: [30, 22, 40, 42] },
+  'Poster':         { bg: '#ffffff', shape: 'portrait',  area: [5,  5,  90, 90] },
+  'Framed Poster':  { bg: '#e8e4dc', shape: 'framed',    area: [12, 12, 76, 76] },
+  'Tote Bag':       { bg: '#e8dcc8', shape: 'square',    area: [20, 15, 60, 65] },
+  'Phone Case':     { bg: '#f5f5f5', shape: 'phone',     area: [15, 10, 70, 75] },
+};
+
 async function generateProductMockup(productType, productName) {
-  if (!state.swappedImagePublicUrl) return; // need the Cloudinary URL
+  if (!state.swappedImageUrl) return;
 
-  const mockupSection  = document.getElementById('mockupSection');
-  const mockupImage    = document.getElementById('mockupImage');
-  const mockupLoading  = document.getElementById('mockupLoading');
+  const mockupSection = document.getElementById('mockupSection');
+  const mockupImage   = document.getElementById('mockupImage');
+  const mockupLoading = document.getElementById('mockupLoading');
+  const mockupTitle   = document.getElementById('mockupTitle');
 
-  mockupSection.style.display  = 'block';
-  mockupLoading.style.display  = 'flex';
-  mockupImage.style.opacity    = '0';
+  mockupSection.style.display = 'block';
+  mockupLoading.style.display = 'flex';
+  mockupImage.style.opacity   = '0';
 
   try {
-    debugLog('Generating product mockup for: ' + productName);
+    const template = PRODUCT_TEMPLATES[productName] || PRODUCT_TEMPLATES['Poster'];
+    const canvas   = document.createElement('canvas');
+    canvas.width   = 600;
+    canvas.height  = template.shape === 'landscape' ? 450 :
+                     template.shape === 'mug' ? 450 :
+                     template.shape === 'phone' ? 750 : 600;
+    const ctx = canvas.getContext('2d');
 
-    // Product-specific prompts for best mockup results
-    const productPrompts = {
-      'Ceramic Mug':    'Transform this into a product photo: a white ceramic coffee mug sitting on a wooden table, with this portrait image printed as a wrap-around design on the mug surface. Studio lighting, white background, professional product photography. The mug must be clearly visible and central.',
-      'Cushion':        'Transform this into a product photo: a square decorative cushion on a sofa, with this portrait image printed on the front face of the cushion. Soft natural lighting, professional product photography.',
-      'Canvas Print':   'Transform this into a product photo: a stretched canvas print hanging on a white wall, showing this portrait image printed on the canvas. Gallery lighting, professional product photography.',
-      'Fleece Blanket': 'Transform this into a product photo: a soft folded fleece blanket showing this portrait image printed across the surface. Warm lighting, professional product photography.',
-      'T-Shirt':        'Transform this into a product photo: a white t-shirt laid flat or on a mannequin, with this portrait image printed on the front chest area. Clean studio lighting, white background, professional product photography.',
-      'Hoodie':         'Transform this into a product photo: a white hoodie on a mannequin, with this portrait image printed on the front. Clean studio lighting, white background, professional product photography.',
-      'Poster':         'Transform this into a product photo: a high-quality poster print pinned to a white wall, showing this portrait image printed on the poster. Gallery lighting, professional product photography.',
-      'Framed Poster':  'Transform this into a product photo: a framed poster on a white wall, showing this portrait image printed and framed. Gallery lighting, professional product photography.',
-      'Tote Bag':       'Transform this into a product photo: a natural cotton tote bag hanging, with this portrait image printed on the front face. Clean studio lighting, white background, professional product photography.',
-      'Phone Case':     'Transform this into a product photo: a smartphone with a custom printed phone case, showing this portrait image printed on the back of the case. Clean studio lighting, white background, professional product photography.',
-      'Sweatshirt':     'Transform this into a product photo: a white sweatshirt on a mannequin, with this portrait image printed on the front. Clean studio lighting, white background, professional product photography.',
-    };
+    // Draw product shape background
+    await drawProductShape(ctx, canvas.width, canvas.height, template, productName);
 
-    const prompt = productPrompts[productName] ||
-      `Transform this into a product photo: a ${productName} with this portrait image printed on it. ` +
-      `Show the ${productName} clearly as the main subject. Professional product photography, white background, studio lighting.`;
+    // Load and draw the face-swap image in the print area
+    const faceImg = await loadImage(state.swappedImageUrl);
+    const [ax, ay, aw, ah] = template.area;
+    const px = Math.round(canvas.width  * ax / 100);
+    const py = Math.round(canvas.height * ay / 100);
+    const pw = Math.round(canvas.width  * aw / 100);
+    const ph = Math.round(canvas.height * ah / 100);
 
-    // Use 4:3 landscape for most products — better for showing product in context
-    const portraitProducts = ['poster','framedposter','canvas','phonecase'];
-    const aspectRatio = portraitProducts.includes(productType) ? '3:4' : '4:3';
-
-    const payload = {
-      prompt,
-      input_image:      state.swappedImagePublicUrl,
-      aspect_ratio:     aspectRatio,
-      output_format:    'jpg',
-      safety_tolerance: 2,
-    };
-
-    const res = await fetch('https://api.segmind.com/v1/flux-kontext-pro', {
-      method:  'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key':    CONFIG.segmindApiKey,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error('Mockup failed: ' + err);
+    // Clip to print area shape
+    ctx.save();
+    if (template.shape === 'mug') {
+      // Curved clip for mug
+      ctx.beginPath();
+      ctx.ellipse(px + pw/2, py, pw/2, 12, 0, Math.PI, 0);
+      ctx.lineTo(px + pw, py + ph);
+      ctx.ellipse(px + pw/2, py + ph, pw/2, 12, 0, 0, Math.PI);
+      ctx.closePath();
+    } else {
+      ctx.beginPath();
+      ctx.roundRect(px, py, pw, ph, 4);
     }
+    ctx.clip();
 
-    // Response is raw binary image
-    const blob    = await res.blob();
-    const mockUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror   = reject;
-      reader.readAsDataURL(blob);
-    });
+    // Draw face-swap image maintaining aspect ratio (cover)
+    const fRatio = faceImg.width / faceImg.height;
+    const pRatio = pw / ph;
+    let sx = 0, sy = 0, sw = faceImg.width, sh = faceImg.height;
+    if (fRatio > pRatio) {
+      sw = faceImg.height * pRatio;
+      sx = (faceImg.width - sw) / 2;
+    } else {
+      sh = faceImg.width / pRatio;
+      sy = (faceImg.height - sh) / 2;
+    }
+    ctx.drawImage(faceImg, sx, sy, sw, sh, px, py, pw, ph);
+    ctx.restore();
 
-    state.mockupImageUrl      = mockUrl;
-    mockupImage.src           = mockUrl;
+    // Add subtle shadow/overlay for realism
+    ctx.save();
+    if (template.shape === 'mug') {
+      const grad = ctx.createLinearGradient(px, py, px + pw, py);
+      grad.addColorStop(0,   'rgba(0,0,0,0.15)');
+      grad.addColorStop(0.3, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.7, 'rgba(0,0,0,0)');
+      grad.addColorStop(1,   'rgba(0,0,0,0.12)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(px, py, pw, ph, 4);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Convert to data URL and display
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    mockupImage.src = dataUrl;
     mockupImage.style.opacity = '1';
     mockupLoading.style.display = 'none';
-    debugLog('Mockup generated!');
-    // Update title
-    const mockupTitle = document.getElementById('mockupTitle');
     if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
+    state.mockupImageUrl = dataUrl;
 
   } catch(e) {
     debugLog('Mockup error: ' + e.message);
     mockupLoading.style.display = 'none';
-    // Just hide mockup section on error — don't block the flow
     mockupSection.style.display = 'none';
   }
 }
+
+async function drawProductShape(ctx, W, H, template, productName) {
+  // Background
+  ctx.fillStyle = '#f8f8f8';
+  ctx.fillRect(0, 0, W, H);
+
+  const shape = template.shape;
+  const cx = W / 2;
+
+  if (shape === 'mug') {
+    // Draw a simple mug outline
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 2;
+    // Mug body
+    const mx = W * 0.2, my = H * 0.1, mw = W * 0.55, mh = H * 0.78;
+    ctx.beginPath();
+    ctx.roundRect(mx, my, mw, mh, [4, 4, 20, 20]);
+    ctx.fill(); ctx.stroke();
+    // Handle
+    ctx.beginPath();
+    ctx.arc(mx + mw + 18, my + mh * 0.45, 28, -Math.PI * 0.6, Math.PI * 0.6);
+    ctx.strokeStyle = '#bbbbbb';
+    ctx.lineWidth = 14;
+    ctx.stroke();
+    // Rim ellipse
+    ctx.fillStyle = '#e8e8e8';
+    ctx.beginPath();
+    ctx.ellipse(mx + mw/2, my, mw/2, 10, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // Label text
+    ctx.fillStyle = '#999999';
+    ctx.font = '13px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(productName, cx, H * 0.96);
+
+  } else if (shape === 'tshirt' || shape === 'hoodie') {
+    // Draw simple t-shirt outline
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#dddddd';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    // Body
+    ctx.roundRect(W*0.15, H*0.25, W*0.7, H*0.68, 4);
+    ctx.fill(); ctx.stroke();
+    // Left sleeve
+    ctx.beginPath();
+    ctx.moveTo(W*0.15, H*0.25);
+    ctx.lineTo(W*0.03, H*0.42);
+    ctx.lineTo(W*0.15, H*0.48);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Right sleeve
+    ctx.beginPath();
+    ctx.moveTo(W*0.85, H*0.25);
+    ctx.lineTo(W*0.97, H*0.42);
+    ctx.lineTo(W*0.85, H*0.48);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Collar
+    ctx.fillStyle = '#f0f0f0';
+    ctx.beginPath();
+    ctx.ellipse(cx, H*0.25, W*0.12, H*0.05, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#999999';
+    ctx.font = '13px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(productName, cx, H * 0.97);
+
+  } else if (shape === 'phone') {
+    // Phone case
+    ctx.fillStyle = '#222222';
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(W*0.1, H*0.05, W*0.8, H*0.9, 20);
+    ctx.fill(); ctx.stroke();
+    // Screen area (black)
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.roundRect(W*0.14, H*0.09, W*0.72, H*0.82, 12);
+    ctx.fill();
+    ctx.fillStyle = '#999999';
+    ctx.font = '13px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(productName, cx, H * 0.98);
+
+  } else if (shape === 'framed') {
+    // Framed poster
+    ctx.fillStyle = '#5c4a32';
+    ctx.strokeStyle = '#3d3020';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(W*0.03, H*0.03, W*0.94, H*0.94, 4);
+    ctx.fill(); ctx.stroke();
+    // Inner frame
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(W*0.1, H*0.1, W*0.8, H*0.8, 2);
+    ctx.fill();
+    ctx.fillStyle = '#999999';
+    ctx.font = '13px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(productName, cx, H * 0.98);
+
+  } else {
+    // Default: clean white rectangle (poster, canvas, cushion, tote, blanket)
+    ctx.fillStyle = shape === 'square' ? '#e8dcc8' :
+                    shape === 'landscape' ? '#e0e0e0' : '#ffffff';
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 2;
+    const pad = W * 0.04;
+    ctx.beginPath();
+    ctx.roundRect(pad, pad, W - pad*2, H - pad*2, 6);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#999999';
+    ctx.font = '13px Nunito, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(productName, cx, H - 8);
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => resolve(img);
+    img.onerror = () => {
+      // Try without crossOrigin if CORS fails
+      const img2 = new Image();
+      img2.onload  = () => resolve(img2);
+      img2.onerror = reject;
+      img2.src = src;
+    };
+    img.src = src;
+  });
+}
+
 
 
 
