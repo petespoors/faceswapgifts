@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.26
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.28
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.26',
+  version:                'v6.28',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -472,6 +472,13 @@ async function performFaceSwap() {
     debugLog('Face swap successful!');
     showSwapResult(imageUrl);
 
+    // Upload to Cloudinary in background so mockup can use it
+    debugLog('Uploading to Cloudinary for mockup...');
+    uploadSwappedImageToCloudinary(imageUrl).then(url => {
+      state.swappedImagePublicUrl = url;
+      debugLog('Ready for product mockup');
+    }).catch(e => debugLog('Cloudinary upload skipped: ' + e.message));
+
   } catch (err) {
     console.error('Face swap error:', err);
     debugLog('ERROR: ' + err.message);
@@ -770,8 +777,41 @@ const PRODUCT_CATALOG = {
 // Attributes to always hide
 const HIDDEN_ATTRS = [
   'ProductStatus','State','ProductModel','UnifiedCanvasFormat',
-  'ColorType','CanvasMaterial','Variable','ColorType','PrintType'
+  'ColorType','CanvasMaterial','Variable','PrintType',
+  'FrameMaterial',
 ];
+
+// Friendly names for Gelato's technical attribute labels
+const ATTR_LABELS = {
+  'MugMaterial':   'Mug Style',
+  'MugFinish':     'Finish',
+  'MugSize':       'Size',
+  'CanvasFrame':   'Frame Depth',
+  'CanvasFormat':  'Size',
+  'CanvasThicknessType': 'Frame Type',
+  'PaperFormat':   'Size',
+  'Orientation':   'Orientation',
+  'FrameColor':    'Frame Colour',
+  'PhoneModel':    'Phone Model',
+  'CaseType':      'Case Type',
+  'Apparel_Size':  'Size',
+  'Apparel_Color': 'Colour',
+  'Apparel_Style': 'Style',
+};
+
+// Clean up Gelato's verbose value labels
+function cleanAttrValue(attrUid, value) {
+  // Remove redundant product type prefix e.g. "Ceramic Mug - Green" -> "Green"
+  return value
+    .replace(/^Ceramic Mug\s*[-–]\s*/i, '')
+    .replace(/^Magic Mug\s*[-–]\s*/i, 'Magic — ')
+    .replace(/^Colour Mug\s*[-–]\s*/i, 'Coloured — ')
+    .replace(/^Canvas substrate\s*/i, 'Standard')
+    .replace(/^Wood FSC\s*/i, '')
+    .replace(/^Thick wooden canvas frames\s*/i, 'Thick frame')
+    .replace(/^Slim wooden frames of canvases\s*/i, 'Slim frame')
+    .trim() || value;
+}
 
 async function selectProduct(el, name, price, type, catalogUid) {
   document.querySelectorAll('.product-card').forEach(c => c.classList.remove('selected'));
@@ -839,15 +879,16 @@ async function loadProductVariants(type, catalogUid, productName) {
         values = Object.values(attr.values);
       }
 
+      const friendlyTitle = ATTR_LABELS[uid] || title;
       return `
         <div style="margin-bottom:12px;">
-          <label style="font-size:13px;font-weight:700;color:var(--dark);display:block;margin-bottom:6px;">${title}</label>
+          <label style="font-size:13px;font-weight:700;color:var(--dark);display:block;margin-bottom:6px;">${friendlyTitle}</label>
           <select onchange="onVariantChange('${uid}', this.value)"
             style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:'Nunito',sans-serif;">
-            <option value="">— Select ${title} —</option>
+            <option value="">— Select ${friendlyTitle} —</option>
             ${values.map(v => {
               const vUid   = v.productAttributeValueUid || '';
-              const vTitle = v.title || vUid;
+              const vTitle = cleanAttrValue(uid, v.title || vUid);
               return `<option value="${vUid}">${vTitle}</option>`;
             }).join('')}
           </select>
@@ -943,6 +984,9 @@ async function generateProductMockup(productType, productName) {
     mockupImage.style.opacity = '1';
     mockupLoading.style.display = 'none';
     debugLog('Mockup generated!');
+    // Update title
+    const mockupTitle = mockupSection.querySelector('h4');
+    if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
 
   } catch(e) {
     debugLog('Mockup error: ' + e.message);
