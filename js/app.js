@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.34
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.35
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.34',
+  version:                'v6.35',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -587,6 +587,7 @@ function initStripe() {
 // Initialise Stripe when page loads
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(initStripe, 500);
+  initHeroCharacters();
 });
 
 // ══════════════════════════════════════════
@@ -717,6 +718,73 @@ async function purchaseGiftCard() {
     btn.textContent = '🎁 Buy Gift Card';
     btn.disabled    = false;
   }
+}
+
+// ══════════════════════════════════════════
+// HERO CHARACTER ANIMATIONS
+// Shows real character images cycling with float animation
+// ══════════════════════════════════════════
+
+// Pick 6 varied character types to show in hero
+// Each entry: [cloudinaryFolder, label]
+const HERO_CHARACTER_TYPES = [
+  'Armed Forces',
+  'Ancient Egyptian',
+  'Knight',
+  'Pirate',
+  'Viking',
+  'Superhero',
+  'Witch or Wizard',
+  'Astronaut',
+  'Ancient Greek',
+  'Ninja',
+  'Fantasy Elf',
+  'Steampunk',
+];
+
+// Build Cloudinary URL for a character image
+function heroImageUrl(characterType, imageNum) {
+  const folder = encodeURIComponent(characterType);
+  // Use Cloudinary transformation for fast thumbnail loading
+  return `https://res.cloudinary.com/dcyp4e7sp/image/upload/w_220,h_260,c_fill,g_face,q_auto,f_auto/faceswapgifts/${folder}/${characterType}-Male-Adult-image-${String(imageNum).padStart(3,'0')}-1.jpg`;
+}
+
+function initHeroCharacters() {
+  const cards = document.querySelectorAll('.hero-char-card');
+  if (!cards.length) return;
+
+  // Pick 6 random character types
+  const shuffled = [...HERO_CHARACTER_TYPES].sort(() => Math.random() - 0.5);
+  const chosen   = shuffled.slice(0, 6);
+
+  // For each card: pick a type, load a random image, set up cycling
+  cards.forEach((card, i) => {
+    const type   = chosen[i];
+    const inner  = card.querySelector('.hero-char-inner');
+    let   imgNum = Math.floor(Math.random() * 8) + 1;
+
+    // Load initial image
+    setHeroImage(inner, type, imgNum);
+
+    // Click to start creating with this character type
+    card.addEventListener('click', () => scrollToBuilder());
+
+    // Cycle to a new image every 3-4 seconds (staggered)
+    const interval = 3000 + (i * 400);
+    setInterval(() => {
+      inner.style.opacity = '0';
+      setTimeout(() => {
+        imgNum = (imgNum % 10) + 1;
+        setHeroImage(inner, type, imgNum);
+        inner.style.opacity = '1';
+      }, 400);
+    }, interval);
+  });
+}
+
+function setHeroImage(innerEl, characterType, imgNum) {
+  const url = heroImageUrl(characterType, imgNum);
+  innerEl.style.backgroundImage = `url('${url}')`;
 }
 
 // ── DEBUG LOGGER ──
@@ -942,24 +1010,54 @@ function onVariantChange(attrUid, value) {
 }
 
 // ══════════════════════════════════════════
-// PRODUCT MOCKUP — CANVAS COMPOSITING
-// Overlays face-swap image onto product template
+// PRODUCT MOCKUP — TEMPLATE COMPOSITING
+// Uses real product photos with defined print areas
 // ══════════════════════════════════════════
 
-// Product templates — clean flat product images with defined print areas
-// printArea: [x%, y%, width%, height%] as percentage of template image
+// Real product template images (blank white products, studio photography)
+// printArea: [x, y, w, h] as 0-1 fractions of template dimensions
+// These are placeholder URLs — replace with your own product photos on Cloudinary
 const PRODUCT_TEMPLATES = {
-  'Ceramic Mug':    { bg: '#f5f5f5', shape: 'mug',      area: [25, 15, 50, 65] },
-  'Cushion':        { bg: '#f0ede8', shape: 'square',    area: [10, 10, 80, 80] },
-  'Canvas Print':   { bg: '#ffffff', shape: 'portrait',  area: [5,  5,  90, 90] },
-  'Fleece Blanket': { bg: '#e8e8e8', shape: 'landscape', area: [5,  5,  90, 90] },
-  'T-Shirt':        { bg: '#ffffff', shape: 'tshirt',    area: [30, 20, 40, 45] },
-  'Hoodie':         { bg: '#ffffff', shape: 'hoodie',    area: [28, 22, 44, 42] },
-  'Sweatshirt':     { bg: '#ffffff', shape: 'tshirt',    area: [30, 22, 40, 42] },
-  'Poster':         { bg: '#ffffff', shape: 'portrait',  area: [5,  5,  90, 90] },
-  'Framed Poster':  { bg: '#e8e4dc', shape: 'framed',    area: [12, 12, 76, 76] },
-  'Tote Bag':       { bg: '#e8dcc8', shape: 'square',    area: [20, 15, 60, 65] },
-  'Phone Case':     { bg: '#f5f5f5', shape: 'phone',     area: [15, 10, 70, 75] },
+  'Ceramic Mug': {
+    url:  'https://images.printful.com/products/19/product_1.jpg',
+    area: [0.28, 0.18, 0.44, 0.62],
+    wrap: true,
+  },
+  'Cushion': {
+    url:  'https://images.printful.com/products/80/product_1.jpg',
+    area: [0.08, 0.08, 0.84, 0.84],
+    wrap: false,
+  },
+  'Canvas Print': {
+    url:  'https://images.printful.com/products/1/product_1.jpg',
+    area: [0.05, 0.05, 0.90, 0.90],
+    wrap: false,
+  },
+  'Fleece Blanket': {
+    url:  'https://images.printful.com/products/320/product_1.jpg',
+    area: [0.05, 0.05, 0.90, 0.90],
+    wrap: false,
+  },
+  'T-Shirt': {
+    url:  'https://images.printful.com/products/71/product_1.jpg',
+    area: [0.30, 0.18, 0.40, 0.44],
+    wrap: false,
+  },
+  'Hoodie': {
+    url:  'https://images.printful.com/products/146/product_1.jpg',
+    area: [0.28, 0.20, 0.44, 0.42],
+    wrap: false,
+  },
+  'Poster': {
+    url:  'https://images.printful.com/products/137/product_1.jpg',
+    area: [0.05, 0.05, 0.90, 0.90],
+    wrap: false,
+  },
+  'Tote Bag': {
+    url:  'https://images.printful.com/products/155/product_1.jpg',
+    area: [0.22, 0.12, 0.56, 0.65],
+    wrap: false,
+  },
 };
 
 async function generateProductMockup(productType, productName) {
@@ -975,41 +1073,46 @@ async function generateProductMockup(productType, productName) {
   mockupImage.style.opacity   = '0';
 
   try {
-    const template = PRODUCT_TEMPLATES[productName] || PRODUCT_TEMPLATES['Poster'];
-    const canvas   = document.createElement('canvas');
-    canvas.width   = 600;
-    canvas.height  = template.shape === 'landscape' ? 450 :
-                     template.shape === 'mug' ? 450 :
-                     template.shape === 'phone' ? 750 : 600;
+    const template = PRODUCT_TEMPLATES[productName];
+
+    if (!template) {
+      // No template — just show the face-swap image itself
+      mockupImage.src           = state.swappedImageUrl;
+      mockupImage.style.opacity = '1';
+      mockupLoading.style.display = 'none';
+      if (mockupTitle) mockupTitle.textContent = '🎨 Your design for ' + productName;
+      return;
+    }
+
+    // Load both images
+    const [productImg, faceImg] = await Promise.all([
+      loadImage(template.url),
+      loadImage(state.swappedImageUrl),
+    ]);
+
+    // Create canvas matching product image dimensions
+    const canvas = document.createElement('canvas');
+    canvas.width  = productImg.naturalWidth  || productImg.width;
+    canvas.height = productImg.naturalHeight || productImg.height;
     const ctx = canvas.getContext('2d');
 
-    // Draw product shape background
-    await drawProductShape(ctx, canvas.width, canvas.height, template, productName);
+    // Draw product template
+    ctx.drawImage(productImg, 0, 0, canvas.width, canvas.height);
 
-    // Load and draw the face-swap image in the print area
-    const faceImg = await loadImage(state.swappedImageUrl);
+    // Calculate print area in pixels
     const [ax, ay, aw, ah] = template.area;
-    const px = Math.round(canvas.width  * ax / 100);
-    const py = Math.round(canvas.height * ay / 100);
-    const pw = Math.round(canvas.width  * aw / 100);
-    const ph = Math.round(canvas.height * ah / 100);
+    const px = Math.round(canvas.width  * ax);
+    const py = Math.round(canvas.height * ay);
+    const pw = Math.round(canvas.width  * aw);
+    const ph = Math.round(canvas.height * ah);
 
-    // Clip to print area shape
+    // Draw face-swap into print area (cover fit)
     ctx.save();
-    if (template.shape === 'mug') {
-      // Curved clip for mug
-      ctx.beginPath();
-      ctx.ellipse(px + pw/2, py, pw/2, 12, 0, Math.PI, 0);
-      ctx.lineTo(px + pw, py + ph);
-      ctx.ellipse(px + pw/2, py + ph, pw/2, 12, 0, 0, Math.PI);
-      ctx.closePath();
-    } else {
-      ctx.beginPath();
-      ctx.roundRect(px, py, pw, ph, 4);
-    }
+    ctx.beginPath();
+    ctx.rect(px, py, pw, ph);
     ctx.clip();
 
-    // Draw face-swap image maintaining aspect ratio (cover)
+    // Cover fit
     const fRatio = faceImg.width / faceImg.height;
     const pRatio = pw / ph;
     let sx = 0, sy = 0, sw = faceImg.width, sh = faceImg.height;
@@ -1021,26 +1124,19 @@ async function generateProductMockup(productType, productName) {
       sy = (faceImg.height - sh) / 2;
     }
     ctx.drawImage(faceImg, sx, sy, sw, sh, px, py, pw, ph);
+
+    // Subtle shadow overlay for realism
+    const grad = ctx.createLinearGradient(px, py, px + pw, py);
+    grad.addColorStop(0,    'rgba(0,0,0,0.12)');
+    grad.addColorStop(0.15, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.85, 'rgba(0,0,0,0)');
+    grad.addColorStop(1,    'rgba(0,0,0,0.10)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(px, py, pw, ph);
     ctx.restore();
 
-    // Add subtle shadow/overlay for realism
-    ctx.save();
-    if (template.shape === 'mug') {
-      const grad = ctx.createLinearGradient(px, py, px + pw, py);
-      grad.addColorStop(0,   'rgba(0,0,0,0.15)');
-      grad.addColorStop(0.3, 'rgba(0,0,0,0)');
-      grad.addColorStop(0.7, 'rgba(0,0,0,0)');
-      grad.addColorStop(1,   'rgba(0,0,0,0.12)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.roundRect(px, py, pw, ph, 4);
-      ctx.fill();
-    }
-    ctx.restore();
-
-    // Convert to data URL and display
     const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-    mockupImage.src = dataUrl;
+    mockupImage.src           = dataUrl;
     mockupImage.style.opacity = '1';
     mockupLoading.style.display = 'none';
     if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
@@ -1048,129 +1144,11 @@ async function generateProductMockup(productType, productName) {
 
   } catch(e) {
     debugLog('Mockup error: ' + e.message);
+    // Fall back to showing face-swap image
+    mockupImage.src           = state.swappedImageUrl;
+    mockupImage.style.opacity = '1';
     mockupLoading.style.display = 'none';
-    mockupSection.style.display = 'none';
-  }
-}
-
-async function drawProductShape(ctx, W, H, template, productName) {
-  // Background
-  ctx.fillStyle = '#f8f8f8';
-  ctx.fillRect(0, 0, W, H);
-
-  const shape = template.shape;
-  const cx = W / 2;
-
-  if (shape === 'mug') {
-    // Draw a simple mug outline
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 2;
-    // Mug body
-    const mx = W * 0.2, my = H * 0.1, mw = W * 0.55, mh = H * 0.78;
-    ctx.beginPath();
-    ctx.roundRect(mx, my, mw, mh, [4, 4, 20, 20]);
-    ctx.fill(); ctx.stroke();
-    // Handle
-    ctx.beginPath();
-    ctx.arc(mx + mw + 18, my + mh * 0.45, 28, -Math.PI * 0.6, Math.PI * 0.6);
-    ctx.strokeStyle = '#bbbbbb';
-    ctx.lineWidth = 14;
-    ctx.stroke();
-    // Rim ellipse
-    ctx.fillStyle = '#e8e8e8';
-    ctx.beginPath();
-    ctx.ellipse(mx + mw/2, my, mw/2, 10, 0, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    // Label text
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px Nunito, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(productName, cx, H * 0.96);
-
-  } else if (shape === 'tshirt' || shape === 'hoodie') {
-    // Draw simple t-shirt outline
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#dddddd';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    // Body
-    ctx.roundRect(W*0.15, H*0.25, W*0.7, H*0.68, 4);
-    ctx.fill(); ctx.stroke();
-    // Left sleeve
-    ctx.beginPath();
-    ctx.moveTo(W*0.15, H*0.25);
-    ctx.lineTo(W*0.03, H*0.42);
-    ctx.lineTo(W*0.15, H*0.48);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // Right sleeve
-    ctx.beginPath();
-    ctx.moveTo(W*0.85, H*0.25);
-    ctx.lineTo(W*0.97, H*0.42);
-    ctx.lineTo(W*0.85, H*0.48);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // Collar
-    ctx.fillStyle = '#f0f0f0';
-    ctx.beginPath();
-    ctx.ellipse(cx, H*0.25, W*0.12, H*0.05, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px Nunito, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(productName, cx, H * 0.97);
-
-  } else if (shape === 'phone') {
-    // Phone case
-    ctx.fillStyle = '#222222';
-    ctx.strokeStyle = '#111111';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(W*0.1, H*0.05, W*0.8, H*0.9, 20);
-    ctx.fill(); ctx.stroke();
-    // Screen area (black)
-    ctx.fillStyle = '#111111';
-    ctx.beginPath();
-    ctx.roundRect(W*0.14, H*0.09, W*0.72, H*0.82, 12);
-    ctx.fill();
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px Nunito, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(productName, cx, H * 0.98);
-
-  } else if (shape === 'framed') {
-    // Framed poster
-    ctx.fillStyle = '#5c4a32';
-    ctx.strokeStyle = '#3d3020';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(W*0.03, H*0.03, W*0.94, H*0.94, 4);
-    ctx.fill(); ctx.stroke();
-    // Inner frame
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.roundRect(W*0.1, H*0.1, W*0.8, H*0.8, 2);
-    ctx.fill();
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px Nunito, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(productName, cx, H * 0.98);
-
-  } else {
-    // Default: clean white rectangle (poster, canvas, cushion, tote, blanket)
-    ctx.fillStyle = shape === 'square' ? '#e8dcc8' :
-                    shape === 'landscape' ? '#e0e0e0' : '#ffffff';
-    ctx.strokeStyle = '#cccccc';
-    ctx.lineWidth = 2;
-    const pad = W * 0.04;
-    ctx.beginPath();
-    ctx.roundRect(pad, pad, W - pad*2, H - pad*2, 6);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#999999';
-    ctx.font = '13px Nunito, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(productName, cx, H - 8);
+    if (mockupTitle) mockupTitle.textContent = '🎨 Your design for ' + productName;
   }
 }
 
@@ -1180,7 +1158,6 @@ function loadImage(src) {
     img.crossOrigin = 'anonymous';
     img.onload  = () => resolve(img);
     img.onerror = () => {
-      // Try without crossOrigin if CORS fails
       const img2 = new Image();
       img2.onload  = () => resolve(img2);
       img2.onerror = reject;
@@ -1189,6 +1166,7 @@ function loadImage(src) {
     img.src = src;
   });
 }
+
 
 
 
