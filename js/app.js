@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.37
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.38
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,19 +11,25 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.37',
+  version:                'v6.38',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
+  // Fallback UIDs for simple products (no variants needed)
+  // Complex products (tshirt, hoodie, canvas etc) are resolved dynamically
+  // via resolveProductUid() using customer variant selections
   gelatoProducts: {
-    mug:       'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
-    tote:      'bag_product_bsc_tote-bag_bqa_prm_bsi_std-t_bco_natural_bpr_4-0',
-    pillow:    'YOUR_PILLOW_UID',
-    blanket:   'YOUR_BLANKET_UID',
-    canvas:    'YOUR_CANVAS_UID',
-    tshirt:    'YOUR_TSHIRT_UID',
-    phonecase: 'YOUR_PHONECASE_UID',
-    poster:    'YOUR_POSTER_UID',
+    mug:          'mug_product_msz_10-oz-slim_mmat_porcelain-white_cl_4-0',
+    tote:         'bag_product_bsc_tote-bag_bqa_prm_bsi_std-t_bco_natural_bpr_4-0',
+    cushion:      null, // resolved dynamically
+    blanket:      null, // resolved dynamically
+    canvas:       null, // resolved dynamically
+    tshirt:       null, // resolved dynamically
+    hoodie:       null, // resolved dynamically
+    sweatshirt:   null, // resolved dynamically
+    poster:       null, // resolved dynamically
+    framedposter: null, // resolved dynamically
+    phonecase:    null, // resolved dynamically
   },
 };
 
@@ -1310,7 +1316,12 @@ async function initiatePayment() {
         btn.textContent = 'Sending to print...';
         const productUid = CONFIG.gelatoProducts[state.selectedProduct.type];
         if (productUid && !productUid.startsWith('YOUR_')) {
-          await placeGelatoOrder(orderRef, imageUrl, customerDetails, state.selectedProduct);
+          // Ensure catalogUid is on the product for UID resolution
+          const productForOrder = {
+            ...state.selectedProduct,
+            catalogUid: PRODUCT_CATALOG[state.selectedProduct.type]?.catalogUid || null,
+          };
+          await placeGelatoOrder(orderRef, imageUrl, customerDetails, productForOrder);
           debugLog('Print order placed!');
         } else {
           debugLog('No UID for ' + state.selectedProduct.type + ' — skipping print');
@@ -1375,10 +1386,63 @@ async function uploadSwappedImageToCloudinary(base64DataUrl) {
   return data.secure_url;
 }
 
+// ══════════════════════════════════════════
+// RESOLVE PRODUCT UID FROM VARIANT SELECTIONS
+// ══════════════════════════════════════════
+async function resolveProductUid(productType, catalogUid, variantSelections) {
+  debugLog('Resolving product UID for: ' + productType);
+
+  // Fallback to hardcoded UID if available (mug, tote)
+  const fallback = CONFIG.gelatoProducts[productType];
+
+  // If no variants selected, use fallback
+  if (!variantSelections || Object.keys(variantSelections).length === 0) {
+    debugLog('No variants — using fallback UID: ' + fallback);
+    return fallback || null;
+  }
+
+  try {
+    // Search Gelato catalog with selected attribute filters
+    const filters = {};
+    for (const [key, val] of Object.entries(variantSelections)) {
+      if (val) filters[key] = [val];
+    }
+
+    debugLog('Searching catalog: ' + catalogUid + ' with filters: ' + JSON.stringify(filters));
+
+    const res  = await fetch(CONFIG.workerUrl + '/gelato-products/' + catalogUid, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attributeFilters: filters, limit: 5, offset: 0 }),
+    });
+    const data = await res.json();
+    const products = data.products || [];
+
+    if (products.length === 0) {
+      debugLog('No matching product found — using fallback');
+      return fallback || null;
+    }
+
+    // Use first matching product
+    const resolved = products[0].productUid;
+    debugLog('Resolved UID: ' + resolved);
+    return resolved;
+
+  } catch(e) {
+    debugLog('UID resolve error: ' + e.message + ' — using fallback');
+    return fallback || null;
+  }
+}
+
 async function placeGelatoOrder(orderRef, imageUrl, customerDetails, product) {
   debugLog('Placing Gelato order...');
 
-  const productUid = CONFIG.gelatoProducts[product.type];
+  // Dynamically resolve the correct UID from variant selections
+  const catalogUid = product.catalogUid || null;
+  const productUid = catalogUid
+    ? await resolveProductUid(product.type, catalogUid, state.selectedVariants || {})
+    : CONFIG.gelatoProducts[product.type];
+
   if (!productUid || productUid.startsWith('YOUR_')) {
     debugLog('No Gelato UID for product: ' + product.type + ' — skipping print order');
     return null;
