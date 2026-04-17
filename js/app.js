@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.35
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.36
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.35',
+  version:                'v6.36',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -722,69 +722,69 @@ async function purchaseGiftCard() {
 
 // ══════════════════════════════════════════
 // HERO CHARACTER ANIMATIONS
-// Shows real character images cycling with float animation
+// Loads real images directly from characters.json
 // ══════════════════════════════════════════
 
-// Pick 6 varied character types to show in hero
-// Each entry: [cloudinaryFolder, label]
-const HERO_CHARACTER_TYPES = [
-  'Armed Forces',
-  'Ancient Egyptian',
-  'Knight',
-  'Pirate',
-  'Viking',
-  'Superhero',
-  'Witch or Wizard',
-  'Astronaut',
-  'Ancient Greek',
-  'Ninja',
-  'Fantasy Elf',
-  'Steampunk',
-];
+// Store image URLs per type once loaded
+const heroImagePool = {};
 
-// Build Cloudinary URL for a character image
-function heroImageUrl(characterType, imageNum) {
-  const folder = encodeURIComponent(characterType);
-  // Use Cloudinary transformation for fast thumbnail loading
-  return `https://res.cloudinary.com/dcyp4e7sp/image/upload/w_220,h_260,c_fill,g_face,q_auto,f_auto/faceswapgifts/${folder}/${characterType}-Male-Adult-image-${String(imageNum).padStart(3,'0')}-1.jpg`;
-}
-
-function initHeroCharacters() {
+async function initHeroCharacters() {
   const cards = document.querySelectorAll('.hero-char-card');
   if (!cards.length) return;
 
-  // Pick 6 random character types
-  const shuffled = [...HERO_CHARACTER_TYPES].sort(() => Math.random() - 0.5);
-  const chosen   = shuffled.slice(0, 6);
+  try {
+    // Load characters.json — already fetched by the main app, reuse if available
+    const res  = await fetch('characters.json?v=' + Date.now());
+    const data = await res.json();
 
-  // For each card: pick a type, load a random image, set up cycling
-  cards.forEach((card, i) => {
-    const type   = chosen[i];
-    const inner  = card.querySelector('.hero-char-inner');
-    let   imgNum = Math.floor(Math.random() * 8) + 1;
+    // Group images by type, pick Adult gender-mixed images for best look
+    const byType = {};
+    for (const char of data.characters) {
+      if (!char.type || !char.imageUrl) continue;
+      // Prefer adults for visual impact
+      if (!char.age || char.age.toLowerCase().includes('toddler') || char.age.toLowerCase().includes('child')) continue;
+      if (!byType[char.type]) byType[char.type] = [];
+      // Store all individual image IDs for cycling
+      for (const img of (char.allImages || [char.id])) {
+        byType[char.type].push(
+          `https://res.cloudinary.com/dcyp4e7sp/image/upload/w_220,h_260,c_fill,g_face,q_auto,f_auto/${img}.jpg`
+        );
+      }
+    }
 
-    // Load initial image
-    setHeroImage(inner, type, imgNum);
+    // Pick 6 random types that have images
+    const types    = Object.keys(byType).filter(t => byType[t].length > 0);
+    const shuffled = types.sort(() => Math.random() - 0.5).slice(0, 6);
 
-    // Click to start creating with this character type
-    card.addEventListener('click', () => scrollToBuilder());
+    cards.forEach((card, i) => {
+      const type  = shuffled[i];
+      if (!type) return;
+      const imgs  = byType[type];
+      const inner = card.querySelector('.hero-char-inner');
+      let   idx   = Math.floor(Math.random() * imgs.length);
 
-    // Cycle to a new image every 3-4 seconds (staggered)
-    const interval = 3000 + (i * 400);
-    setInterval(() => {
-      inner.style.opacity = '0';
-      setTimeout(() => {
-        imgNum = (imgNum % 10) + 1;
-        setHeroImage(inner, type, imgNum);
-        inner.style.opacity = '1';
-      }, 400);
-    }, interval);
-  });
-}
+      // Set initial image
+      inner.style.backgroundImage = `url('${imgs[idx]}')`;
 
-function setHeroImage(innerEl, characterType, imgNum) {
-  const url = heroImageUrl(characterType, imgNum);
-  innerEl.style.backgroundImage = `url('${url}')`;
+      // Click goes to builder
+      card.addEventListener('click', () => scrollToBuilder());
+
+      // Cycle images every 3-5 seconds staggered
+      const interval = 3000 + (i * 500);
+      setInterval(() => {
+        inner.style.opacity = '0';
+        setTimeout(() => {
+          idx = (idx + 1) % imgs.length;
+          inner.style.backgroundImage = `url('${imgs[idx]}')`;
+          inner.style.opacity = '1';
+        }, 500);
+      }, interval);
+    });
+
+  } catch(e) {
+    console.warn('Hero characters failed to load:', e.message);
+    // Silently fail — hero still works without images
+  }
 }
 
 // ── DEBUG LOGGER ──
