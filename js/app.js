@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.38
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.39
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.38',
+  version:                'v6.39',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -837,6 +837,23 @@ function retakePhoto() {
 // ══════════════════════════════════════════
 // PRODUCT SELECTION
 // ══════════════════════════════════════════
+// Gelato template IDs for mockup generation
+// Set these after creating templates in Gelato dashboard
+// dashboard.gelato.com → Templates → Create template per product
+const GELATO_TEMPLATES = {
+  mug:          '4c9c7acb-235d-4fe7-85eb-aac7d711a379', // Magic 11oz Mug (test)
+  cushion:      null,
+  canvas:       null,
+  blanket:      null,
+  tshirt:       null,
+  hoodie:       null,
+  sweatshirt:   null,
+  poster:       null,
+  framedposter: null,
+  tote:         null,
+  phonecase:    null,
+};
+
 // Product catalog — catalogUid maps to Gelato catalog
 // Variant attributes we care about per product type
 const PRODUCT_CATALOG = {
@@ -1021,146 +1038,110 @@ function onVariantChange(attrUid, value) {
 }
 
 // ══════════════════════════════════════════
-// PRODUCT MOCKUP — TEMPLATE COMPOSITING
-// Uses real product photos with defined print areas
+// PRODUCT MOCKUP — GELATO TEMPLATE API
+// Sends face-swap image to Gelato, gets back
+// a photorealistic product mockup image
 // ══════════════════════════════════════════
-
-// Real product template images (blank white products, studio photography)
-// printArea: [x, y, w, h] as 0-1 fractions of template dimensions
-// These are placeholder URLs — replace with your own product photos on Cloudinary
-const PRODUCT_TEMPLATES = {
-  'Ceramic Mug': {
-    url:  'https://images.printful.com/products/19/product_1.jpg',
-    area: [0.28, 0.18, 0.44, 0.62],
-    wrap: true,
-  },
-  'Cushion': {
-    url:  'https://images.printful.com/products/80/product_1.jpg',
-    area: [0.08, 0.08, 0.84, 0.84],
-    wrap: false,
-  },
-  'Canvas Print': {
-    url:  'https://images.printful.com/products/1/product_1.jpg',
-    area: [0.05, 0.05, 0.90, 0.90],
-    wrap: false,
-  },
-  'Fleece Blanket': {
-    url:  'https://images.printful.com/products/320/product_1.jpg',
-    area: [0.05, 0.05, 0.90, 0.90],
-    wrap: false,
-  },
-  'T-Shirt': {
-    url:  'https://images.printful.com/products/71/product_1.jpg',
-    area: [0.30, 0.18, 0.40, 0.44],
-    wrap: false,
-  },
-  'Hoodie': {
-    url:  'https://images.printful.com/products/146/product_1.jpg',
-    area: [0.28, 0.20, 0.44, 0.42],
-    wrap: false,
-  },
-  'Poster': {
-    url:  'https://images.printful.com/products/137/product_1.jpg',
-    area: [0.05, 0.05, 0.90, 0.90],
-    wrap: false,
-  },
-  'Tote Bag': {
-    url:  'https://images.printful.com/products/155/product_1.jpg',
-    area: [0.22, 0.12, 0.56, 0.65],
-    wrap: false,
-  },
-};
-
 async function generateProductMockup(productType, productName) {
-  if (!state.swappedImageUrl) return;
-
   const mockupSection = document.getElementById('mockupSection');
   const mockupImage   = document.getElementById('mockupImage');
   const mockupLoading = document.getElementById('mockupLoading');
   const mockupTitle   = document.getElementById('mockupTitle');
 
-  mockupSection.style.display = 'block';
-  mockupLoading.style.display = 'flex';
-  mockupImage.style.opacity   = '0';
+  const templateId = GELATO_TEMPLATES[productType];
+
+  // Need the Cloudinary URL (public) and a template
+  if (!state.swappedImagePublicUrl && !state.swappedImageUrl) return;
+  if (!templateId) {
+    // No template yet — just show the face-swap image
+    mockupSection.style.display  = 'block';
+    mockupLoading.style.display  = 'none';
+    mockupImage.src               = state.swappedImageUrl || state.swappedImagePublicUrl;
+    mockupImage.style.opacity     = '1';
+    if (mockupTitle) mockupTitle.textContent = '🎨 Your design';
+    return;
+  }
+
+  mockupSection.style.display  = 'block';
+  mockupLoading.style.display  = 'flex';
+  mockupImage.style.opacity    = '0';
+  if (mockupTitle) mockupTitle.textContent = '🎨 Generating your preview...';
 
   try {
-    const template = PRODUCT_TEMPLATES[productName];
+    // Use Cloudinary URL if available, otherwise use base64
+    const imageUrl = state.swappedImagePublicUrl || state.swappedImageUrl;
 
-    if (!template) {
-      // No template — just show the face-swap image itself
-      mockupImage.src           = state.swappedImageUrl;
+    debugLog('Creating Gelato mockup for: ' + productName);
+
+    // Step 1 — create product from template
+    const createRes = await fetch(CONFIG.workerUrl + '/create-mockup', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId, imageUrl }),
+    });
+    const createData = await createRes.json();
+
+    if (!createData.success || !createData.productId) {
+      throw new Error('Mockup creation failed: ' + JSON.stringify(createData.error));
+    }
+
+    debugLog('Mockup product created: ' + createData.productId);
+
+    // Step 2 — poll for mockup image (Gelato generates in background)
+    const mockupUrl = await pollForMockup(createData.productId, 20);
+
+    if (mockupUrl) {
+      mockupImage.src           = mockupUrl;
       mockupImage.style.opacity = '1';
       mockupLoading.style.display = 'none';
-      if (mockupTitle) mockupTitle.textContent = '🎨 Your design for ' + productName;
-      return;
-    }
-
-    // Load both images
-    const [productImg, faceImg] = await Promise.all([
-      loadImage(template.url),
-      loadImage(state.swappedImageUrl),
-    ]);
-
-    // Create canvas matching product image dimensions
-    const canvas = document.createElement('canvas');
-    canvas.width  = productImg.naturalWidth  || productImg.width;
-    canvas.height = productImg.naturalHeight || productImg.height;
-    const ctx = canvas.getContext('2d');
-
-    // Draw product template
-    ctx.drawImage(productImg, 0, 0, canvas.width, canvas.height);
-
-    // Calculate print area in pixels
-    const [ax, ay, aw, ah] = template.area;
-    const px = Math.round(canvas.width  * ax);
-    const py = Math.round(canvas.height * ay);
-    const pw = Math.round(canvas.width  * aw);
-    const ph = Math.round(canvas.height * ah);
-
-    // Draw face-swap into print area (cover fit)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(px, py, pw, ph);
-    ctx.clip();
-
-    // Cover fit
-    const fRatio = faceImg.width / faceImg.height;
-    const pRatio = pw / ph;
-    let sx = 0, sy = 0, sw = faceImg.width, sh = faceImg.height;
-    if (fRatio > pRatio) {
-      sw = faceImg.height * pRatio;
-      sx = (faceImg.width - sw) / 2;
+      if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
+      state.mockupImageUrl = mockupUrl;
+      debugLog('Mockup ready: ' + mockupUrl);
     } else {
-      sh = faceImg.width / pRatio;
-      sy = (faceImg.height - sh) / 2;
+      throw new Error('Mockup image not ready after polling');
     }
-    ctx.drawImage(faceImg, sx, sy, sw, sh, px, py, pw, ph);
-
-    // Subtle shadow overlay for realism
-    const grad = ctx.createLinearGradient(px, py, px + pw, py);
-    grad.addColorStop(0,    'rgba(0,0,0,0.12)');
-    grad.addColorStop(0.15, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.85, 'rgba(0,0,0,0)');
-    grad.addColorStop(1,    'rgba(0,0,0,0.10)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(px, py, pw, ph);
-    ctx.restore();
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-    mockupImage.src           = dataUrl;
-    mockupImage.style.opacity = '1';
-    mockupLoading.style.display = 'none';
-    if (mockupTitle) mockupTitle.textContent = '🎨 Your personalised ' + productName;
-    state.mockupImageUrl = dataUrl;
 
   } catch(e) {
     debugLog('Mockup error: ' + e.message);
     // Fall back to showing face-swap image
-    mockupImage.src           = state.swappedImageUrl;
+    mockupImage.src           = state.swappedImageUrl || '';
     mockupImage.style.opacity = '1';
     mockupLoading.style.display = 'none';
     if (mockupTitle) mockupTitle.textContent = '🎨 Your design for ' + productName;
   }
+}
+
+async function pollForMockup(productId, maxAttempts) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, 2000)); // wait 2s between polls
+
+    try {
+      const res  = await fetch(CONFIG.workerUrl + '/poll-mockup/' + productId);
+      const data = await res.json();
+
+      debugLog('Poll ' + (i+1) + ': status=' + data.status);
+
+      // Check for preview URL
+      if (data.previewUrl) return data.previewUrl;
+
+      // Check variant mockup URLs
+      if (data.mockupUrls && data.mockupUrls.length > 0) return data.mockupUrls[0];
+
+      // If published/active, check raw data for image URLs
+      if (data.raw) {
+        const raw = data.raw;
+        if (raw.previewUrl) return raw.previewUrl;
+        // Check variants for mockup images
+        for (const v of (raw.variants || [])) {
+          if (v.mockups && v.mockups.length > 0) return v.mockups[0].url;
+          if (v.previewUrl) return v.previewUrl;
+        }
+      }
+    } catch(e) {
+      debugLog('Poll error: ' + e.message);
+    }
+  }
+  return null; // gave up
 }
 
 function loadImage(src) {
@@ -1177,6 +1158,7 @@ function loadImage(src) {
     img.src = src;
   });
 }
+
 
 
 
