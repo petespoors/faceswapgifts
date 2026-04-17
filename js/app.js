@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════
-// FACESWAPGIFTS.CO.UK — MAIN APP v6.36
+// FACESWAPGIFTS.CO.UK — MAIN APP v6.37
 // ═══════════════════════════════════════════
 
 const CONFIG = {
@@ -11,7 +11,7 @@ const CONFIG = {
   cloudinaryUploadPreset: 'faceswapgifts',
   deliveryPrice:          3.99,
   freeDeliveryThreshold:  30.00,
-  version:                'v6.36',
+  version:                'v6.37',
   versionDate:            'April 2026',
 
   workerAdminKey: '1MissionImpossible2!',
@@ -769,16 +769,21 @@ async function initHeroCharacters() {
       // Click goes to builder
       card.addEventListener('click', () => scrollToBuilder());
 
-      // Cycle images every 3-5 seconds staggered
-      const interval = 3000 + (i * 500);
-      setInterval(() => {
-        inner.style.opacity = '0';
-        setTimeout(() => {
-          idx = (idx + 1) % imgs.length;
-          inner.style.backgroundImage = `url('${imgs[idx]}')`;
-          inner.style.opacity = '1';
-        }, 500);
-      }, interval);
+      // Cycle every 10-15 seconds, each card offset so they never change together
+      // Card 0: starts at 10s, card 1: 12s, card 2: 14s, etc.
+      const baseInterval = 10000;
+      const offset       = i * 2500; // 2.5s apart = no two change at same time
+
+      setTimeout(() => {
+        setInterval(() => {
+          inner.style.opacity = '0';
+          setTimeout(() => {
+            idx = (idx + 1) % imgs.length;
+            inner.style.backgroundImage = `url('${imgs[idx]}')`;
+            inner.style.opacity = '1';
+          }, 1500); // 1.5s fade duration
+        }, baseInterval);
+      }, offset);
     });
 
   } catch(e) {

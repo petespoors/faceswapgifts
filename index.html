@@ -28,26 +28,34 @@
   .gc-preset-btn.selected { border-color: var(--orange); background: var(--orange); color: white; }
   
 /* ── HERO CHARACTER CARDS ── */
-.hero-characters {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-chars-left,
+.hero-chars-right {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 10px;
+  flex-shrink: 0;
+  padding: 16px 8px;
 }
 .hero-char-card {
-  width: 110px;
-  height: 130px;
-  border-radius: 16px;
+  width: 100px;
+  height: 120px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
+  flex-shrink: 0;
 }
 .hero-char-card:hover {
-  transform: translateY(-6px) scale(1.04);
-  box-shadow: 0 16px 32px rgba(0,0,0,0.2);
+  transform: scale(1.04);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.25);
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 .hero-char-inner {
   width: 100%;
@@ -55,31 +63,33 @@
   background-size: cover;
   background-position: center top;
   background-color: var(--light);
-  transition: opacity 0.8s ease;
+  opacity: 1;
+  transition: opacity 1.5s ease;
 }
-/* Staggered float animations */
-.hc1 { animation: heroFloat1 4.0s ease-in-out infinite; }
-.hc2 { animation: heroFloat2 4.5s ease-in-out infinite; }
-.hc3 { animation: heroFloat3 3.8s ease-in-out infinite; }
-.hc4 { animation: heroFloat1 4.2s ease-in-out infinite 0.5s; }
-.hc5 { animation: heroFloat2 3.6s ease-in-out infinite 1.0s; }
-.hc6 { animation: heroFloat3 4.8s ease-in-out infinite 0.3s; }
+/* Gentle float animations — subtle */
+.hc1 { animation: heroFloat1 5.0s ease-in-out infinite; }
+.hc2 { animation: heroFloat2 6.0s ease-in-out infinite 0.8s; }
+.hc3 { animation: heroFloat3 5.5s ease-in-out infinite 1.6s; }
+.hc4 { animation: heroFloat1 5.8s ease-in-out infinite 0.4s; }
+.hc5 { animation: heroFloat2 5.2s ease-in-out infinite 1.2s; }
+.hc6 { animation: heroFloat3 6.2s ease-in-out infinite 2.0s; }
 
 @keyframes heroFloat1 {
-  0%, 100% { transform: translateY(0px);   }
-  50%       { transform: translateY(-8px);  }
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-7px); }
 }
 @keyframes heroFloat2 {
-  0%, 100% { transform: translateY(-4px);  }
-  50%       { transform: translateY(4px);   }
+  0%, 100% { transform: translateY(-3px); }
+  50%       { transform: translateY(5px);  }
 }
 @keyframes heroFloat3 {
-  0%, 100% { transform: translateY(-2px);  }
-  50%       { transform: translateY(-10px); }
+  0%, 100% { transform: translateY(-5px); }
+  50%       { transform: translateY(3px);  }
 }
-@media (max-width: 600px) {
-  .hero-char-card { width: 80px; height: 96px; }
-  .hero-characters { gap: 8px; }
+/* Hide on small screens */
+@media (max-width: 700px) {
+  .hero-chars-left,
+  .hero-chars-right { display: none; }
 }
 </style>
 </head>
@@ -163,6 +173,14 @@ function checkBetaPassword() {
      HERO
 ═══════════════════════════════════════════ -->
 <section class="hero">
+  <!-- Left column of character cards -->
+  <div class="hero-chars-left" id="heroCharsLeft">
+    <div class="hero-char-card hc1"><div class="hero-char-inner"></div></div>
+    <div class="hero-char-card hc2"><div class="hero-char-inner"></div></div>
+    <div class="hero-char-card hc3"><div class="hero-char-inner"></div></div>
+  </div>
+
+  <!-- Centre content -->
   <div class="hero-inner">
     <div class="hero-badge">🎁 The UK's most unique personalised gift</div>
     <h1>Put <span>Your Face</span><br>on an Epic Character!</h1>
@@ -176,11 +194,9 @@ function checkBetaPassword() {
       <span>Loved by thousands of gift-givers across the UK</span>
     </div>
   </div>
-  <div class="hero-characters" id="heroCharacters">
-    <!-- Populated by JS with real character images -->
-    <div class="hero-char-card hc1"><div class="hero-char-inner"></div></div>
-    <div class="hero-char-card hc2"><div class="hero-char-inner"></div></div>
-    <div class="hero-char-card hc3"><div class="hero-char-inner"></div></div>
+
+  <!-- Right column of character cards -->
+  <div class="hero-chars-right" id="heroCharsRight">
     <div class="hero-char-card hc4"><div class="hero-char-inner"></div></div>
     <div class="hero-char-card hc5"><div class="hero-char-inner"></div></div>
     <div class="hero-char-card hc6"><div class="hero-char-inner"></div></div>
